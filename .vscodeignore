@@ -1,0 +1,24 @@
+# 忽略开发环境相关文件
+.vscode/**
+.vscode-test/**
+.gitignore
+.yarnrc
+vsc-extension-quickstart.md
+
+# 忽略 TypeScript 源文件和配置文件
+src/**
+**/tsconfig.json
+**/eslint.config.mjs
+
+# 忽略测试文件和日志文件
+**/*.test.js
+**/*.spec.js
+**/*.map
+**/*.log
+
+# 忽略 TypeScript 源文件（如果已编译为 JavaScript）
+**/*.ts
+
+# 忽略其他不必要的文件
+**/.vscode-test.*
+node_modules/**

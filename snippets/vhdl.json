@@ -1,0 +1,463 @@
+{
+    "head-VHDL-self": {
+        "prefix": "head-VHDL-self",
+        "body": [
+           "---*********************************************************************---",
+           "--- Author         : Adolph",
+           "--- Create Time    : ${CURRENT_YEAR}-${CURRENT_MONTH}-${CURRENT_DATE} ${CURRENT_HOUR}:${CURRENT_MINUTE}:${CURRENT_SECOND}",
+           "--- Email          : ***@gmail.com",
+           "--- Project Name   : (项目名称)   ",
+           "--- Target Devices : (器件名称)",
+           "--- Tool versions  : VS Code",
+           "---*********************************************************************---",
+           "--- File_name      : ${TM_FILENAME_BASE}.vhd",
+           "--- Called by      : /",
+           "---------------------------------------------------------------------------",
+           "--- Module Hiberarchy:(层次划分)",
+           "---                      |  （子模块）           （模块功能说明）",
+           "---                      |///module0           ///-..功能",
+           "---                      |///module1           ///-..功能",
+           "---                      |///module2           ///-..功能",
+           "--- XXXX_top             |///module3           ///-..功能", 
+           "---                      |///module4           ///-..功能",
+           "---                      |///module5           ///-..功能",
+           "---                      |///module6           ///-..功能",
+           "---*********************************************************************---",
+           "--- Modify History:（历史记录）",
+           "---------------------------------------------------------------------------",
+           "---    Date     |  Modifier       | Version     | Modification Description",
+           "---------------------------------------------------------------------------",
+           "--- ${CURRENT_YEAR}-${CURRENT_MONTH}-${CURRENT_DATE}  |  who            | V1.01       | 修改XXX的门限",
+           "------*********************************************************************---",
+           "--- Main Function:(Describing main function of the module)",
+           "---  完成顶层模块例化（模块功能描述）",
+           "---*********************************************************************--- ",
+           ""
+        ],
+     "description": "head-VHDL-self"
+     },
+
+     "module-VHDL": {
+        "prefix": "module-VHDL",
+        "body": [
+           "Library ieee;",
+           "use ieee.std_logic_1164.all;          -- Basic package for handling std_logic types",
+           "-- use ieee.numeric_std.all;          -- Recommended standard numerical computation package",
+           "use ieee.std_logic_arith.all;         -- synopsys package , not Standard ",       
+           "use ieee.std_logic_unsigned.all;      -- synopsys package , not Standard ",    
+           "",
+           "Entity ${TM_FILENAME_BASE} is",
+           "    Port ( ",
+           "    ---------  input signal  ---------- ",
+           "        I_sys_clk               : in  STD_LOGIC                         ;    --- System Clock xx MHz",
+           "        I_rst_n                 : in  STD_LOGIC                         ;    --- reset , low valid",
+           "        ${0:input}", 
+           "    ---------  output signal ---------- ",
+           "        ",
+           "    );",
+           "end ${TM_FILENAME_BASE};",
+           "",
+           "Architecture RTL of ${TM_FILENAME_BASE} is",
+           "---====================================================================================================  ",
+           "---                   Parameter                          ",
+           "---====================================================================================================  ",
+           "",
+           "",
+           "--===================================================================================================== ",
+           "--                    component                         ",
+           "--===================================================================================================== ",
+           "",
+           "",
+           "--=====================================================================================================  ",
+           "--                 Internal Signal                       ",
+           "--===================================================================================================== ",
+           "",
+           "",
+           "---==================================================================================================== ",
+           "---                   Main Code                        ",
+           "---====================================================================================================",
+           "Begin",
+           "    ",
+           "    ",
+           "    ",
+           "end RTL; ",
+           "---===============   ${TM_FILENAME_BASE} END   ============="
+        ],
+     "description": "module-VHDL" 
+     },
+     "vhdl-input-s":{
+        "prefix": "vhdl-input-s  , //",
+        "body": [
+           "I_$1 $0: in  STD_LOGIC                         ;    ---$2",
+           ""
+        ],
+     "description": "vhdl-input-s*1"
+     },
+  
+     "vhdl-input-x":{
+        "prefix": "vhdl-input-x  , //",
+        "body": [
+           "I_$1 $0: in  STD_LOGIC_VECTOR ($2 downto 0)     ;    ---$3",
+           ""
+        ],
+     "description": "vhdl-input-x*1"
+     },
+  
+     "vhdl-input-int":{
+        "prefix": "vhdl-input-int  , //",
+        "body": [
+           "I_$1 $0: in  INTEGER range 0 to $2            ;    ---$3",
+           ""
+        ],
+     "description": "vhdl-input-int*1" 
+     },
+     "vhdl-output-s":{
+        "prefix": "vhdl-output-S  , //",
+        "body": [
+           "O_$1 $0: out STD_LOGIC                         ;    ---$2",
+           ""
+        ],
+     "description": "vhdl-output-s*1" 
+     },
+  
+     "vhdl-output-x":{
+        "prefix": "vhdl-output-x  , //",
+        "body": [
+           "O_$1 $0: out STD_LOGIC_VECTOR ($2 downto 0)     ;    ---$3",
+           ""
+        ],
+     "description": "vhdl-output-x*1"
+     },
+  
+     "vhdl-output-int":{
+        "prefix": "vhdl-output-int  , //",
+        "body": [
+           "O_$1 $0: out INTEGER range 0 to $2            ;    ---$3",
+           ""
+        ],
+     "description": "vhdl-output-x*1"
+     },
+  
+     "vhdl-io-s":{
+        "prefix": "vhdl-io-s  , //",
+        "body": [
+           "IO_$1 $0: inout  STD_LOGIC                      ;    ---$3",
+           ""
+        ],
+     "description": "vhdl-io-s*1"
+     },
+  
+     "vhdl-io-x":{
+        "prefix": "vhdl-io-x  , //",
+        "body": [
+           "IO_$1 $0: inout  STD_LOGIC_VECTOR ($2 downto 0)  ;    ---$3",
+           ""
+        ],
+     "description": "vhdl-io-x*1"
+     },
+  
+     "vhdl-constant": {
+        "prefix": "vhdl-constant",
+        "body": [
+           "constant  C_$1 $0:  INTEGER := $2                        ; ---"
+        ],
+     "description": "vhdl-constant"
+     },
+  
+     "vhdl-signal-s": {
+        "prefix": "vhdl-signal-s",
+        "body": [
+           "signal S_$1 $0:  STD_LOGIC                            ; ---"
+        ],
+     "description": "vhdl-signal-s"
+     },
+  
+     "vhdl-signal-x": {
+        "prefix": "vhdl-signal-x",
+        "body": [
+           "signal S_$1 $0:  STD_LOGIC_VECTOR($2 downto 0)           ; ---"
+        ],
+     "description": "vhdl-signal-x" 
+     },
+  
+     "vhdl-signal-int": {
+        "prefix": "vhdl-signal-int",
+        "body": [
+           "signal S_$1 $0:  INTEGER range 0 to ${2:max}       ; ---整型，表达范围 0-->$2"
+        ],
+     "description": "vhdl-signal-int"
+     },
+     "vhdl-note": {
+        "prefix": "vhdl-note",
+        "body": [
+           "---==================================================================================================== ",
+           "---                   $1                        ",
+           "---===================================================================================================="
+        ],
+     "description": "vhdl-note"
+     },
+     "vhdl-process-less": {
+        "prefix": "vhdl-process-less",
+        "body": [
+           "process(I_rst_n,I_sys_clk) begin",
+           "    if(I_rst_n = '0')then",
+           "        $1 <= (others => '0');",
+           "    elsif(I_sys_clk'event and I_sys_clk='1')then",
+           "        $1 <= $2;",
+           "    end if;",
+           "end process;$0"
+        ],
+     "description": "vhdl-process-less"
+     },
+  
+     "vhdl-process-full": {
+        "prefix": "vhdl-process-full",
+        "body": [
+           "process(I_rst_n,I_sys_clk) begin",
+           "    if(I_rst_n='0')then",
+           "        $1 <= (others => '0');",
+           "    elsif(I_sys_clk'event and I_sys_clk='1')then",
+           "        if($2)then",
+           "            $1 <= $3;",
+           "        else",
+           "            $1 <= $4;",
+           "        end if;",
+           "    end if;",
+           "end process;$0"
+        ],
+     "description": "vhdl-process-full"
+     },
+     "vhdl-if-a": {
+        "prefix": "vhdl-if-a",
+        "body": [
+           "if($1)then",
+           "    $2 <= $3;$0",
+           "end if;"
+        ],
+     "description": "vhdl-if-a"
+     },
+  
+     "vhdl-elsif-a": {
+        "prefix": "vhdl-elsif-a",
+        "body": [
+           "elsif($1)then",
+           "    $2 <= $3;$0"
+        ],
+     "description": "vhdl-elsif-a"
+     },
+  
+     "vhdl-else-b": {
+        "prefix": "vhdl-else-b",
+        "body": [
+           "else",
+           "    $1 <= $2;$0"
+        ],
+     "description": "vhdl-else-b"
+     },
+     "vhdl-case": {
+     "prefix": "vhdl-case",
+        "body": [
+           "case $1 is",
+           "\tWHEN $0",
+           "\tWHEN others => NULL;",
+           "end case;"
+        ],
+     "description": "vhdl-case" 
+     },
+     "vhdl-function": {
+        "prefix": "vhdl-function",
+        "body": [
+           "function ${1:fuc_name}($2 : INTEGER) return INTEGER is",
+           "variable ${3:var_name} : INTEGER;",
+           "begin",
+           "    $0;",
+           "    return $3;",
+           "end function $1;"
+        ],
+     "description": "vhdl-function"
+     },
+     "vhdl-Procedure": {
+          "prefix": "vhdl-procedure",
+          "body": [
+              "procedure ${1:name} (${2:params}) is",
+              "begin",
+              "\t$0",
+              "end procedure ${1:name};"
+          ],
+          "description": "procedure body declaration"
+      },
+     "vhdl-component": {
+     "prefix": "vhdl-component",
+     "body": [
+        "component ${TM_FILENAME_BASE} is",
+        "\tPort ( ",
+        "\t\t$0",
+        "\t);",
+        "end component;"
+     ],
+     "description": "vhdl-component"
+     },
+     "vhdl-test-bench": {
+     "prefix": "vhdl-test-bench",
+     "body": [
+        "---*********************************************************************---",
+        "--- Author         : Adolph",
+        "--- Create Time    :  ${CURRENT_YEAR}-${CURRENT_MONTH}-${CURRENT_DATE} ${CURRENT_HOUR}:${CURRENT_MINUTE}:${CURRENT_SECOND}",
+        "--- Email          : ***@gmail.com",
+        "--- Project Name   : (项目名称)   ",
+        "--- Target Devices : (器件名称)",
+        "--- Tool versions  : VS Code",
+        "---*********************************************************************---",
+        "--- File_name      : ${TM_FILENAME_BASE}.vhd",
+        "--- Called by      : /",
+        "---------------------------------------------------------------------------",
+        "--- Module Hiberarchy:(层次划分)",
+        "---                      |  （子模块）           （模块功能说明）",
+        "---                      |///module0           ///-..功能",
+        "---                      |///module1           ///-..功能",
+        "---                      |///module2           ///-..功能",
+        "--- XXXX_top             |///module3           ///-..功能",
+        "---                      |///module4           ///-..功能",
+        "---                      |///module5           ///-..功能",
+        "---                      |///module6           ///-..功能",
+        "---*********************************************************************---",
+        "--- Modify History:（历史记录）",
+        "---------------------------------------------------------------------------",
+        "---    Date     |  Modifier       | Version     | Modification Description",
+        "---------------------------------------------------------------------------",
+        "---  ${CURRENT_YEAR}-${CURRENT_MONTH}-${CURRENT_DATE} |  who            | V1.01       | 修改XXX的门限",
+        "------*********************************************************************---",
+        "--- Main Function:(Describing main function of the module)",
+        "---  ",
+        "---*********************************************************************--- ",
+        "Library ieee;",
+        "use ieee.std_logic_1164.all;          -- Basic package for handling std_logic types",
+        "use ieee.numeric_std.all;          -- Recommended standard numerical computation package",
+        "use ieee.std_logic_unsigned.all;      -- synopsys package , not Standard ",
+        "",
+        "Entity ${TM_FILENAME_BASE} is ",
+        "    --- Test Bench need not Ports",
+        "end ${TM_FILENAME_BASE};",
+        "",
+        "Architecture RTL of ${TM_FILENAME_BASE} is",
+        "",
+        "---====================================================================================================  ",
+        "---                   Parameter                          ",
+        "---====================================================================================================  ",
+        "    constant  C_CLK_PERIOD          :  TIME := 20 ns         ; --- 50MHz", 
+        "    constant  C_RST_TIME            :  TIME := 26 ns         ; ---",
+        "",
+        "--===================================================================================================== ",
+        "--                    component                         ",
+        "--===================================================================================================== ",
+        "",
+        "",
+        "",
+        "--=====================================================================================================  ",
+        "--                 Internal Signal                       ",
+        "--===================================================================================================== ",
+        "    signal S_clk        :  STD_LOGIC := '0'             ; ---",
+        "    signal S_reset_n    :  STD_LOGIC := '1'             ; ---",
+        "",
+        "---==================================================================================================== ",
+        "---                   Main Code                        ",
+        "---====================================================================================================",
+        "",
+        "Begin",
+        "",
+        "---==================================================================================================== ",
+        "---        Instation the Unit Under Test(UUT)      ",
+        "---====================================================================================================",
+        "\t",
+        "",
+        "---==================================================================================================== ",
+        "---                   时钟信号描述                        ",
+        "---====================================================================================================",
+        "    clk_process : process(S_clk)",
+        "    begin ",
+        "        S_clk <= not S_clk after (C_CLK_PERIOD/2); ",
+        "    end process clk_process;",
+        "",
+        "---==================================================================================================== ",
+        "---                   复位信号描述                        ",
+        "---====================================================================================================",
+        "\t-- 复位信号生成逻辑",
+        "\treset_process : process",
+        "\tbegin",
+        "\t\tS_reset_n <= '0';  -- 初始设置为 '0'",
+        "\t\twait for C_RST_TIME;  -- 等待 26 ns",
+        "\t\tS_reset_n <= '1';  -- 26 ns 后置为 '1'",
+        "\t\twait;  -- 永久等待，停止过程",
+        "\tend process reset_process;",
+        "",
+        "---==================================================================================================== ",
+        "---                   Other signals                        ",
+        "---====================================================================================================",
+        "\t",
+        "\tother_process : process",
+        "\tbegin",
+        "\t\t",
+        "\t\t",
+        "\t\t",
+        "\t\twait for 10us;",
+        "\t\t-- 暂停仿真",
+        "\t\t-- report \"Simulation paused at \" & integer'image((now / 1 ns)) & \" ns\" severity failure; --- 暂停仿真，前一句结尾不需要分号",
+        "\t\tstd.env.stop;  -- 停止仿真",
+        "\tend process other_process;",
+        "end RTL;",
+        "",
+        "---===============   ${TM_FILENAME_BASE} END   ==============="
+     ],
+     "description": "vhdl-test-bench"
+     },
+     "vhdl-process-normal": {
+     "prefix": "vhdl-process-normal",
+     "body": [
+        "${1:proc_name} : process(${2:arg})",
+        "begin ",
+        "\t${0:des-here}",
+        "end process $1;"
+     ],
+     "description": "vhdl-process-normal"
+     },
+     "vhdl-file-opt": {
+     "prefix": "vhdl-file-opt",
+     "body": [
+        "use std.textio.all; --- 此语句放到最前面",
+        "    stim_proc : process(S_clk,S_reset_n)",
+        "    -- 定义输入输出文件",
+        "    file file_in    : TEXT is in \"data_in.txt\";",
+        "    file file_out   : TEXT is out \"data_out.txt\";",
+        "",
+        "    -- 定义用于输入/输出的 line 类型变量",
+        "    variable line_in  : LINE ;",
+        "    variable line_out : LINE ;",
+        "",
+        "    -- 定义用于从 line 类型中读取数据的中间变量",
+        "    variable input_tmp  : INTEGER ;",
+        "    variable output_tmp : INTEGER ;",
+        "    ",
+        "    begin ",
+        "        if(S_reset_n = '0')then",
+        "            S_a <= 0; --- S_a 写入信号，需要外部自定义", 
+        "        elsif(rising_edge(S_clk))then",
+        "            if(NOT(ENDFILE(file_in)))then",
+        "                READLINE(file_in,line_in);      --- TEXT->LINE 使用 READLINE; 从 file_in 文件读取一行，存放于 line_in",
+        "                READ(line_in,input_tmp);        --- LINE->data_type 使用 READ;再从 line_in 中读取整数赋给 input_tmp",
+        "",
+        "                S_a <= input_tmp;               --- 将读取的数据 input_tmp 输入给 DUT",
+        "                output_tmp := S_m;              --- 将 DUT 的输出赋给 output_tmp",
+        "                                --- S_m 写入信号，需要外部自定义",
+        "                WRITE(line_out,output_tmp);     --- data_type->LINE 使用 WRITE; 将 output_tmp 写到 line_out",
+        "                WRITELINE(file_out,line_out);   --- LINE-> TEXT 使用 WRITELINE; 再将 line_out 吓到输出文件 file_out 中",
+        "            else",
+        "                ASSERT FALSE",
+        "                    report \"End of File !\";",
+        "                    std.env.stop;  -- 停止仿真",
+        "            end if;",
+        "        end if;",
+        "    end process stim_proc;"
+     ],
+     "description": "vhdl-file-opt"
+     }
+  }

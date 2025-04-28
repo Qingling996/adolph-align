@@ -1,0 +1,78 @@
+{
+  "name": "adolph-align",
+  "displayName": "Adolph-Align",
+  "description": "code align",
+  "publisher": "AdolphWang",
+  "version": "0.0.1",
+  "engines": {
+    "vscode": "^1.99.0"
+  },
+  "categories": [
+    "Formatters"
+  ],
+  "icon": "icon.png",
+  "activationEvents": [ ],
+  "main": "./out/extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "adolph-align.left",
+        "title": "Align Left (parentheses content)"
+      },
+      {
+        "command": "adolph-align.center",
+        "title": "Align Center (parentheses content)"
+      },
+      {
+        "command": "adolph-align.right",
+        "title": "Align Right (parentheses content)"
+      }
+    ],
+    "configuration": {
+      "title": "Parentheses Align",
+      "properties": {
+        "parenthesesAlign.defaultAlignment": {
+          "type": "string",
+          "enum": ["left", "center", "right"],
+          "default": "center",
+          "description": "Default alignment for parentheses content"
+        }
+      }
+    },
+    "keybindings": [
+      {
+        "command": "adolph-align.left",
+        "key": "alt+l",
+        "when": "editorTextFocus"
+      },
+      {
+        "command": "adolph-align.center",
+        "key": "alt+c",
+        "when": "editorTextFocus"
+      },
+      {
+        "command": "adolph-align.right",
+        "key": "alt+r",
+        "when": "editorTextFocus"
+      }
+    ],
+    "snippets": [
+      {
+        "language": "verilog",
+        "path": "./snippets/verilog.json"
+      },
+      {
+        "language": "vhdl",
+        "path": "./snippets/vhdl.json"
+      }
+    ]
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Qingling996/Parentheses-align.git"
+  },
+  "scripts": {
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./"
+  }
+}

@@ -1,0 +1,682 @@
+{
+    "zhushi": {
+       "prefix": "zhushi",
+       "body": [
+          "/* ================================================================================================  */",
+          "/*    $0                                             $1      $0                                           */",
+          "/* ================================================================================================  */",
+          ""
+       ],
+    "description": "zhushi done"
+    },
+ 
+    "defe_key_word": {
+       "prefix": "defe_key_word",
+       "body":[
+          "`define     "
+       ],
+    "description": "define*1"
+    },
+
+    "reg-signal": { 
+       "prefix": "reg-Signal",
+       "body": [
+          "reg                     S_$1; //",
+          "    "
+       ],
+    "description": "regx*1"
+    },
+ 
+    "reg-x": {
+       "prefix": "reg-x[x:00]  signal",
+       "body": [
+          "reg      [$0:00]        S_$1; //",
+          "    "
+       ],
+    "description": "regx*1"
+    },
+ 
+    "wire-signal": {
+       "prefix": "wire-Signal",
+       "body": [
+          "wire                    S_$1; //"
+       ],
+    "description": "wire*1"
+    },
+ 
+    "wire-x": {
+       "prefix":"wire-x[x:00]  signal",
+       "body": [
+          "wire     [$0:00]        S_$1; //",
+          ""
+       ],
+    "description": "wirex*1"
+    },
+
+    "task_key_word": {
+       "prefix": "task_key_word ",
+       "body": [
+          "task  $1; // Task Name",
+          "    // input     ;",
+          "    begin",
+          "    ",
+          "    end ",
+          "endtask "
+       ],
+    "description": "task*1"
+    },
+ 
+    "case_key_word": {
+       "prefix": "case_key_word",
+       "body": [
+          "case($1)",
+          "    ",
+          "    default:",
+          "endcase"
+       ],
+    "description": "case*1"
+    },
+
+    "input-s":{
+       "prefix": "input-Signal  , //",
+       "body": [
+          "input                    I_$1  , //",
+          ""
+       ],
+    "description": "inputx*1"
+    },
+ 
+    "input-x": {
+       "prefix": "input-x[xx:00] Signal  , //",
+       "body": [
+          "input          [$0:00]   I_$1  , //",
+          ""
+       ],
+    "description": "inputx*1"
+    },
+ 
+    "output-wire":{
+       "prefix": "output-s-wire                Signal  , //",
+       "body": [
+          "output                   O_$1  , //",
+          ""
+       ],
+    "description": "output*1"
+    },
+ 
+    "output-x-wire":{
+       "prefix":"output-x-wire[xx:00]    Signal  , //",
+       "body": [
+          "output         [$0:00]   O_$1  , //",
+          ""
+       ],
+    "description": "outputx*1"
+    },
+ 
+    "output-r": {
+       "prefix": "output-s-reg                 Signal  , //",
+       "body": [
+          "output reg                  O_$1  , //",
+          ""
+       ],
+    "description": "outputr*1"
+    },
+ 
+    "output-x-reg": {
+       "prefix":"output-x-reg      [:00]    Signal  , //",
+       "body": [
+          "output reg        [$0:00]   O_$1  , //",
+          ""
+       ],
+    "description": "outr*1"
+    },
+ 
+    "repeat": {
+       "prefix": "repeat_key_word",
+       "body": [
+          "repeat($1)begin",
+          "    $0",
+          "end"
+       ],
+    "description": "repeat*1"
+    },
+
+    "localparam": {
+       "prefix": "localparam-c",
+       "body": [
+          "localparam C_$1 = $0;"
+       ],
+    "description": "localparam*1"
+    },
+ 
+    "parameter": {
+       "prefix": "parameter-c",
+       "body": [
+          "parameter C_$1 = $0;"
+       ],
+    "description": "parameter*1"
+    },
+ 
+    "defparam_key_word": {
+       "prefix": "defparam_key_word ",
+       "body": [
+          "defparam    C_$1 = $0;",
+          ""
+       ],
+    "description": "defparam*1"
+    },
+
+    "if_a_key_word": {
+       "prefix": "if_a_key_word",
+       "body": [
+          "if($1)begin",
+          "    $0",
+          "end"
+       ],
+    "description": "if*1"
+    },
+ 
+    "else_if_table": {
+       "prefix": "else_if_table",
+       "body": [
+          "else if($1)begin",
+          "    $0",
+          "end"
+       ],
+    "description": "elf*1"
+    },
+ 
+    "else_a_key_word": {
+       "prefix": "else_a_key_word",
+       "body": [
+          "else begin",
+          "    $1",
+          "end"
+       ],
+    "description": "if*1"
+    },
+ 
+    "begin_key_word": {
+       "prefix": "begin_key_word",
+       "body": [
+       "begin ",
+       "    $1",
+       "end "
+       ],
+       "description": "begin*1"
+    },
+    "jsq": {
+       "prefix": "jsq",
+       "body": [
+          "reg          [$1:00]    S_$2     ; //Counter    ",
+          "wire                    S_add_$2 ; //Counter Enable",
+          "wire                    S_end_$2 ; //Counter reset ",
+          "    ",
+          "always @(posedge I_sys_clk or negedge I_rst_n)begin",
+          "    if(I_rst_n == 1'b0)begin  ",
+          "        S_$2 <= 'd0; ",
+          "    end  ",
+          "    else if(S_add_$2 == 1'b1)begin  ",
+          "        if(S_end_$2 == 1'b1)begin  ",
+          "            S_$2 <= 'd0; ",
+          "        end  ",
+          "        else begin  ",
+          "            S_$2 <= S_$2 + 1'b1; ",
+          "        end  ",
+          "    end  ",
+          "    else begin  ",
+          "        S_$2 <= 'd0;  ", 
+          "    end  ",
+          "end ",
+          "assign S_add_$2 = $0; ",
+          "assign S_end_$2 = (S_add_$2 == 1'b1) && (S_$2 >= ); "
+       ],
+    "description": "jsq*1"
+    },
+ 
+    "jsq_2level":{
+       "prefix": "jsq_2level",
+       "body":[
+          "reg          [$1:00]    S_$2    ; //Counter  ",
+          "wire                    S_add_$2; //Counter Enable",
+          "wire                    S_end_$2; //Counter reset",
+          "",
+          "reg          [$0:00]    S_$3    ; //Counter ",
+          "wire                    S_add_$3; //Counter Enable",
+          "wire                    S_end_$3; //Counter reset",
+          "",
+          "always @(posedge I_sys_clk or negedge I_rst_n)begin  ",
+          "    if(I_rst_n == 1'b0)begin  ",
+          "        S_$2 <= 'd0; ",
+          "    end  ",
+          "    else if(S_add_$2 == 1'b1)begin  ",
+          "        if(S_end_$2 == 1'b1)begin  ",
+          "            S_$2 <= 'd0; ",
+          "        end  ",
+          "        else begin  ",
+          "            S_$2 <= S_$2 + 1'b1; ",
+          "        end  ",
+          "    end  ",
+          "    else begin  ",
+          "        S_$2 <= 'd0;",
+          "    end  ",
+          "end ",
+          "assign S_add_$2 = ; ",
+          "assign S_end_$2 = (S_add_$2 == 1'b1) && (S_$2 >= ); ",
+          "always @(posedge I_sys_clk or negedge I_rst_n)begin  ",
+          "    if(I_rst_n == 1'b0)begin  ",
+          "        S_$3 <= 'd0; ",
+          "    end  ",
+          "    else if(S_add_$3 == 1'b1)begin  ",
+          "        if(S_end_$3 == 1'b1)begin  ",
+          "            S_$3 <= 'd0; ",
+          "        end  ",
+          "        else begin  ",
+          "            S_$3 <= S_$3 + 1'b1; ",
+          "        end  ",
+          "    end  ",
+          "    else begin  ",
+          "        S_$3 <= S_$3;  ",
+          "    end  ",
+          "end ",
+          "assign S_add_$3 = ; ",
+          "assign S_end_$3 = (S_add_$3 == 1'b1) && (S_$3 >= ); "
+       ],
+    "description": "jsq*2"
+    },
+ 
+    "jsq_3level":{
+       "prefix": "jsq_3level",
+       "body": [
+          "reg          [$1:00]    S_$2    ; //Counter  ",
+          "wire                    S_add_$2; //Counter Enable",
+          "wire                    S_end_$2; //Counter ",
+          "",
+          "reg          [$5:00]    S_$3    ; //Counter ",
+          "wire                    S_add_$3; //Counter Enable",
+          "wire                    S_end_$3; //Counter ",
+          "",
+          "reg          [$0:00]    S_$4    ; //Counter ",
+          "wire                    S_add_$4; //Counter Enable",
+          "wire                    S_end_$4; //Counter ",
+          "",
+          "always @(posedge I_sys_clk or negedge I_rst_n)begin  ",
+          "    if(I_rst_n == 1'b0)begin  ",
+          "        S_$2 <= 'd0; ",
+          "    end  ",
+          "    else if(S_add_$2 == 1'b1)begin  ",
+          "        if(S_end_$2 == 1'b1)begin  ",
+          "            S_$2 <= 'd0; ",
+          "        end  ",
+          "        else begin  ",
+          "            S_$2 <= S_$2 + 1'b1; ",
+          "        end  ",
+          "    end  ",
+          "    else begin  ",
+          "        S_$2 <= 'd0;",
+          "    end  ",
+          "end ",
+          "assign S_add_$2 = ; ",
+          "assign S_end_$2 = (S_add_$2 == 1'b1) && (S_$2 >= ); ",
+          "always @(posedge I_sys_clk or negedge I_rst_n)begin  ",
+          "    if(I_rst_n == 1'b0)begin  ",
+          "        S_$3 <= 'd0; ",
+          "    end  ",
+          "    else if(S_add_$3 == 1'b1)begin  ",
+          "        if(S_end_$3 == 1'b1)begin  ",
+          "            S_$3 <= 'd0; ",
+          "        end  ",
+          "        else begin  ",
+          "            S_$3 <= S_$3 + 1'b1; ",
+          "        end  ",
+          "    end  ",
+          "    else begin  ",
+          "        S_$3 <= S_$3;  ",
+          "    end  ",
+          "end ",
+          "assign S_add_$3 = S_end_$2; ",
+          "assign S_end_$3 = (S_add_$3 == 1'b1) && (S_$3 >= ); ",
+          "always @(posedge I_sys_clk or negedge I_rst_n)begin  ",
+          "    if(I_rst_n == 1'b0)begin  ",
+          "        S_$4 <= 'd0; ",
+          "    end  ",
+          "    else if(S_add_$4 == 1'b1)begin  ",
+          "        if(S_end_$4 == 1'b1)begin  ",
+          "            S_$4 <= 'd0; ",
+          "        end  ",
+          "        else begin  ",
+          "            S_$4 <= S_$4 + 1'b1; ",
+          "        end  ",
+          "    end  ",
+          "    else begin  ",
+          "        S_$4 <= S_$4;  ",
+          "    end  ",
+          "end ",
+          "assign S_add_$4 = S_end_$3; ",
+          "assign S_end_$4 = (S_add_$4 == 1'b1) && (S_$4 >= ); "
+       ],
+    "description": "jsq*3"
+    },
+    "shixu-full": {
+       "prefix": "shixu-full",
+       "body": [
+          "always @(posedge I_sys_clk or negedge I_rst_n)begin " ,
+          "    if(I_rst_n == 1'b0)begin",
+          "        $1",
+          "    end  ",
+          "    else if($2)begin",
+          "        $3",
+          "    end  ",
+          "    else begin",
+          "        $0",
+          "    end",
+          "end ",
+          ""
+       ],
+    "description": "shixu*1"
+    },
+ 
+    "shixu-less": {
+       "prefix": "shixu-less",
+       "body": [
+          "always @(posedge I_sys_clk or negedge I_rst_n)begin " ,
+          "    if(I_rst_n == 1'b0)begin",
+          "        $1",
+          "    end  ",
+          "    else begin",
+          "        $0",
+          "    end",
+          "end ",
+          ""
+       ],
+    "description": "shixu*1"
+    },
+ 
+    "zuhe": {
+       "prefix": "Zuhe_logic",
+       "body": [
+          "always @(*)begin ",
+          "    $1",
+          "end " ,
+          ""
+       ],
+    "description": "Zuhe*1"
+    },
+
+    "module-verilog": {
+       "prefix": "module-verilog",
+       "body": [      
+          "///////////////////////////////////////////////////////////////////////////",
+          "/// Project Name         :    ",
+          "/// Software             : VS Code / Vivado 2018.3 / Modelsim SE 10.6e",
+          "/// Target Device        : ",
+          "/// Module Name          : ${TM_FILENAME_BASE}",
+          "/// Upper Level Module   : / ",
+          "/// Detail Info          : <A brief summary of the code's intention>",
+          "///////////////////////////////////////////////////////////////////////////",
+          "/// Revision             : <1.0>",
+          "/// Revision Date        : <${CURRENT_YEAR}-${CURRENT_MONTH}-${CURRENT_DATE} ${CURRENT_HOUR}:${CURRENT_MINUTE}:${CURRENT_SECOND}>",
+          "/// Author               : Adolph adolph1354238998@gmail.com",
+          "/// Revision Detail Info : ",
+          "/// <1.0> <${CURRENT_YEAR}-${CURRENT_MONTH}-${CURRENT_DATE}>   : < A brief summary of the code's revsion>",
+          "/// <1.1> <2025-xx-xx>   : < A brief summary of the code's revsion>",
+          "///////////////////////////////////////////////////////////////////////////",
+          "",
+          "module ${TM_FILENAME_BASE}(",
+          "    /* --------------------- Input Signals --------------------- */",
+          "    input                       I_sys_clk      , //System Clock xx MHz",
+          "    input                       I_rst_n        , //Reset Signal, Low Valid",
+          "    input                       I_$1  , //",
+          "    /* --------------------- Output Signals -------------------- */",
+          "    ",
+          ");",
+          "/* ================================================================================================  */",
+          "/*                                       Parameters Declaration                                      */",
+          "/* ================================================================================================  */",
+          "    ",
+          "",
+          "/* ================================================================================================  */",
+          "/*                                        Signals Declaration                                        */",
+          "/* ================================================================================================  */",
+          "    ",
+          "",
+          "/* ================================================================================================  */",
+          "/*                                        Module Instantiation                                       */",
+          "/* ================================================================================================  */",
+          "    ",
+          "",
+          "/* ================================================================================================  */",
+          "/*                                             Main Code                                             */",
+          "/* ================================================================================================  */",
+          "    ",
+          "endmodule //${TM_FILENAME_BASE} END"
+       ],
+    "description": "end of Module-verilog"
+    },
+    "my_test_bench": {
+       "prefix": "my_testbench",
+       "body": [
+          "/* ================================================================================================ *\\",
+          "Company            : ",
+          "Engineer           : Adolph",
+          "Email              : adolph1354238998@gmail.com",
+          "Create Date        : ${CURRENT_YEAR}-${CURRENT_MONTH}-${CURRENT_DATE} ${CURRENT_HOUR}:${CURRENT_MINUTE}:${CURRENT_SECOND}",
+          "",
+          "Project Name       : ",
+          "File & Module Name : ${TM_FILENAME_BASE}.v",
+          "Target Devices     : None",
+          "Tool Versions      : ModelsimSE_10.6e - VS Code",
+          "",
+          "Description        : It's a TestBench file",
+          "Revision           : Revision 0.01 - File Created",
+          "Additional Comments: ",
+          "",
+          "\\* ================================================================================================ */",
+          "    ",
+          "`timescale 1ns/1ps            //Definition of Time Scale for Simulation System",
+          "",
+          "`define clk_period 20         //Clock cycle macro definition     ",
+          "",
+          "module ${TM_FILENAME_BASE}; ",
+          "",
+          "//Definition of Incentive Signal  ",
+          "    reg                 S_clk      ; ",
+          "    reg                 S_rst_n    ; ",
+          "",
+          "//Definition of Response Signal ",
+          "    ",
+          "    ",
+          "/* ================================================================================================  */",
+          "/*                                            Instantiate                                            */",
+          "/* ================================================================================================  */",
+          "    ",
+          "    ",
+          "//Generate clock ",
+          "    initial S_clk = 1'b0; ",
+          "    always #(`clk_period / 2) S_clk = ~S_clk;    ",
+          "    ",
+          "//Generate motivation ",
+          "    initial  begin  ",
+          "        $$timeformat(-9,0,\" ns\",15); //Precision, decimal places, accompanying string content, overall minimum length",
+          "        $$display(\"%t:  NOTE: Simulation Start ! \",$$realtime);",
+          "        S_rst_n = 1'b0;    ",
+          "        #(`clk_period * 3 + 3);     ",
+          "        S_rst_n = 1'b1;    ",
+          "        #(`clk_period * 5 + 5); ",
+          "        ",
+          "        #(`clk_period * 50); ",
+          "        $$display(\"%t:  NOTE: Simulation End ! \",$$realtime);",
+          "        $$stop(2); ",         
+          "    end ",
+          "",
+          "endmodule //${TM_FILENAME_BASE} END"
+       ],
+    "description": "test_bench*1"
+    },
+    "head-verilog-self": {
+       "prefix": "head-verilog-self",
+       "body": [
+          "///////////////////////////////////////////////////////////////////////////",
+          "/// Project Name         :    ",
+          "/// Software             : VS Code / Vivado 2018.3 / Modelsim SE 10.6e",
+          "/// Target Device        : ",
+          "/// Module Name          : ${TM_FILENAME_BASE}",
+          "/// Upper Level Module   : / ",
+          "/// Detail Info          : <A brief summary of the code's intention>",
+          "///////////////////////////////////////////////////////////////////////////",
+          "/// Revision             : <1.0>",
+          "/// Revision Date        : <${CURRENT_YEAR}-${CURRENT_MONTH}-${CURRENT_DATE} ${CURRENT_HOUR}:${CURRENT_MINUTE}:${CURRENT_SECOND}>",
+          "/// Author               : Adolph adolph1354238998@gmail.com",
+          "/// Revision Detail Info : ",
+          "/// <1.0> <${CURRENT_YEAR}-${CURRENT_MONTH}-${CURRENT_DATE}>   : < A brief summary of the code's revsion>",
+          "/// <1.1> <2025-xx-xx>   : < A brief summary of the code's revsion>",
+          "///////////////////////////////////////////////////////////////////////////",
+          ""
+       ],
+    "description": "head-verilog-self"
+    },
+    "start_do": {
+       "prefix": "start_do ",
+       "body": [
+          "#/* ================================================================================================ *\\",
+          "#Filename           : ${TM_FILENAME_BASE}.do",
+          "#Author             : Adolph",
+          "#Called by          : ",
+          "#@Time              : ${CURRENT_YEAR}-${CURRENT_MONTH}-${CURRENT_DATE} ${CURRENT_HOUR}:${CURRENT_MINUTE}:${CURRENT_SECOND}",
+          "#Email              : ***@gmail.com",
+          "#Company            :  ",
+          "#Revision & Function: 1.0    ",
+          "#\\* ================================================================================================ */",
+          "#此脚本文件存放于工程文件夹下的tb子文件夹",
+          "#在 modelsim 的 transcript 窗口执行的时候使用",
+          "# do filename.do 命令后，自动执行仿真",
+          "",
+          "#编译仿真库",
+          "    transcript on",
+          "    if ![file isdirectory verilog_libs] {",
+          "        file mkdir verilog_libs",
+          "    }",
+          "",
+          "    #vlib verilog_libs/altera_ver",
+          "    #vmap altera_ver ./verilog_libs/altera_ver",
+          "    #vlog -vlog01compat -work altera_ver {d:/intelfpga/18.1/quartus/eda/sim_lib/altera_primitives.v}",
+          "    #    # d:/intelfpga/18.1/quartus/eda/sim_lib/ 前述地址为Quartus 本地安装路径",
+          "    ",
+          "    #vlib verilog_libs/lpm_ver",
+          "    #vmap lpm_ver ./verilog_libs/lpm_ver",
+          "    #vlog -vlog01compat -work lpm_ver {d:/intelfpga/18.1/quartus/eda/sim_lib/220model.v}",
+          "    ",
+          "    #vlib verilog_libs/sgate_ver",
+          "    #vmap sgate_ver ./verilog_libs/sgate_ver",
+          "    #vlog -vlog01compat -work sgate_ver {d:/intelfpga/18.1/quartus/eda/sim_lib/sgate.v}",
+          "    ",
+          "    #vlib verilog_libs/altera_mf_ver",
+          "    #vmap altera_mf_ver ./verilog_libs/altera_mf_ver",
+          "    #vlog -vlog01compat -work altera_mf_ver {d:/intelfpga/18.1/quartus/eda/sim_lib/altera_mf.v}",
+          "    ",
+          "    #vlib verilog_libs/altera_lnsim_ver",
+          "    #vmap altera_lnsim_ver ./verilog_libs/altera_lnsim_ver",
+          "    #vlog -sv -work altera_lnsim_ver {d:/intelfpga/18.1/quartus/eda/sim_lib/altera_lnsim.sv}",
+          "    #",
+          "    #vlib verilog_libs/cycloneive_ver",
+          "    #vmap cycloneive_ver ./verilog_libs/cycloneive_ver",
+          "    #vlog -vlog01compat -work cycloneive_ver {d:/intelfpga/18.1/quartus/eda/sim_lib/cycloneive_atoms.v}",
+          "    ",
+          "#检查是否存在rtl_work,如果存在，则删除",
+          "    if {[file exists rtl_work]} {",
+          "        vdel -lib rtl_work -all",
+          "    }",
+          "",
+          "#建立 rtl_work",
+          "    vlib rtl_work",
+          "    vmap work rtl_work",
+          "",
+          "#编译    测试文件    ",                    
+          "    vlog     tb_name_tb.v",
+          "    ",
+          "#编译 设计文件（位于工程文件夹下的rtl子文件夹） ",                     
+          "    vlog ../rtl/*.v",
+          "    ",
+          "#编译 IP文件",
+          "#如果设计中有IP文件，则需要找到所在路径下的.v文件，添加进来，注意：不要添加例化模板文件",
+          "    #vlog  ../ip/ip_dir/ip_name.v",
+          "",
+          "    #    -L altera_ver            这几个为可选项，用到哪个仿真库下的IP，就添加对应的仿真库，不清楚就全部保留",
+          "    #    -L lpm_ver               需要添加IP 仿真库的时候，记得将上面对应的库文件编译语句取消注释",
+          "    #    -L sgate_ver             其他暂时没查到",
+          "    #    -L altera_mf_ver         PLL、ROM、RAM、FIFO、shift_register",
+          "    #    -L altera_lnsim_ver      接口相关",
+          "    #    -L cycloneive_ver        iobuf",
+          "",
+          "    vsim -t 1ps -L rtl_work -L work -voptargs=\"+acc\"  tb_name_tb",
+          "    ",
+          "# 自动识别 wave.do 文件是否存在,并选择加载",
+          "    set filename \"wave.do\"",
+          "    set file_exists [file exists $$filename]",
+          "",
+          "# 根据文件存在与否执行不同的命令",
+          "    if {$$file_exists} {",
+          "        # 文件存在时执行的命令",
+          "        puts \"wave.do file exist\"",
+          "        do wave.do",
+          "        run -all",
+          "    } else {",
+          "        # 文件不存在时执行的命令",
+          "        puts \"wave.do file not exist\"",
+          "        # 其他操作...",
+          "        run -all",
+          "    }"
+       ],
+    "description": "Do Over!!!"
+    },
+
+    "ztj": {
+       "prefix": "ztj_3_level",
+       "body": [
+          "//三段式状态机",
+          "  //独热码定义状态参数",
+          "    localparam C_IDLE      = 'b0001;// 状态",
+          "    localparam C_S1        = 'b0010;// 状态",
+          "    localparam C_S2        = 'b0100;// 状态",
+          "    localparam C_S3        = 'b1000;// 状态",      
+          "    ",
+          "reg         [0x:00]     S_state_c, S_state_n; //状态变量声明",
+          "//跳转条件定义",
+          "    ",
+          "    ",
+          "//第一段设置状态转移空间",
+          "always @(posedge I_sys_clk or negedge I_rst_n)begin",
+          "    if(I_rst_n == 1'b0)begin",
+          "        S_state_c <= IDLE;",
+          "    end",
+          "    else begin",
+          "        S_state_c <= S_state_n;",
+          "    end",
+          "end ",
+          "    ",
+          "//第二段、组合逻辑定义状态转移",
+          "always@(*)begin",
+          "    case(S_state_c)",
+          "        C_IDLE  : begin",
+          "        C_S1    : begin",
+          "        C_S2    : begin",
+          "        C_S3    : begin",
+          "        default: begin",
+          "            S_state_n = C_IDLE;",
+          "        end",
+          "    endcase",
+          "end ",
+          "    ",
+          "//状态转移条件",
+          "assign  = S_state_c ==  && ();//",
+          "assign  = S_state_c ==  && ();//",
+          "assign  = S_state_c ==  && ();//",
+          "assign  = S_state_c ==  && ();//",
+          "    ",
+          "//第三段，定义状态机输出情况，可以时序逻辑，也可以组合逻辑",
+          "    ",
+          "    "
+       ],
+    "description": "ztj_3 over"
+    }
+}
