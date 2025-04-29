@@ -3,7 +3,7 @@
   "displayName": "Adolph-Align",
   "description": "code align",
   "publisher": "AdolphWang",
-  "version": "0.0.1",
+  "version": "1.0.0",
   "engines": {
     "vscode": "^1.99.0"
   },
@@ -11,7 +11,12 @@
     "Formatters"
   ],
   "icon": "icon.png",
-  "activationEvents": [ ],
+  "activationEvents": [
+    "onCommand:adolph-align.left",
+    "onCommand:adolph-align.center",
+    "onCommand:adolph-align.right",
+    "onCommand:adolph-align.align"
+  ],
   "main": "./out/extension.js",
   "contributes": {
     "commands": [
@@ -26,19 +31,12 @@
       {
         "command": "adolph-align.right",
         "title": "Align Right (parentheses content)"
+      },
+      {
+        "command": "adolph-align.align",
+        "title": "Align Verilog Code"
       }
     ],
-    "configuration": {
-      "title": "Parentheses Align",
-      "properties": {
-        "parenthesesAlign.defaultAlignment": {
-          "type": "string",
-          "enum": ["left", "center", "right"],
-          "default": "center",
-          "description": "Default alignment for parentheses content"
-        }
-      }
-    },
     "keybindings": [
       {
         "command": "adolph-align.left",
@@ -54,6 +52,11 @@
         "command": "adolph-align.right",
         "key": "alt+r",
         "when": "editorTextFocus"
+      },
+      {
+        "command": "adolph-align.align",
+        "key": "alt+a",
+        "when": "editorTextFocus"
       }
     ],
     "snippets": [
@@ -65,7 +68,107 @@
         "language": "vhdl",
         "path": "./snippets/vhdl.json"
       }
-    ]
+    ],
+    "configuration": {
+      "title": "Adolph-Verolog-Align",
+      "properties": {
+        "simpleAlign.num1": {
+          "type": "number",
+          "default": 4,
+          "description": "input/output/inout 左侧与行首的距离"
+        },
+        "simpleAlign.num2": {
+          "type": "number",
+          "default": -4,
+          "description": "input/output/inout 右侧与位宽左侧之间的距离"
+        },
+        "simpleAlign.num3": {
+          "type": "number",
+          "default": 21,
+          "description": "input/output/inout 位宽右侧与变量之间的距离"
+        },
+        "simpleAlign.num4": {
+          "type": "number",
+          "default": 33,
+          "description": "input/output/inout 端口信号 + 信号后面到 ',' 的空格的长度"
+        },
+        "simpleAlign.num5": {
+          "type": "number",
+          "default": 4,
+          "description": "reg/wire 左侧与行首的距离"
+        },
+        "simpleAlign.num6": {
+          "type": "number",
+          "default": -1,
+          "description": "reg/wire 右侧与位宽左侧的距离"
+        },
+        "simpleAlign.num7": {
+          "type": "number",
+          "default": 21,
+          "description": "位宽右侧与变量左侧之间的空格数-1"
+        },
+        "simpleAlign.num8": {
+          "type": "number",
+          "default": 30,
+          "description": "wire/reg 内部变量信号 + 信号后面到 ';' 的空格的长度"
+        },
+        "simpleAlign.num9": {
+          "type": "number",
+          "default": 4,
+          "description": "parameter/localparam 左侧与行首的距离"
+        },
+        "simpleAlign.num10": {
+          "type": "number",
+          "default": 32,
+          "description": "parameter/localparam 到 参数信号之前的空格的长度"
+        },
+        "simpleAlign.num11": {
+          "type": "number",
+          "default": 25,
+          "description": "参数信号 + 信号后面到 ';' 的空格的长度"
+        },
+        "simpleAlign.num12": {
+          "type": "number",
+          "default": 4,
+          "description": "assign 左侧与行首的距离"
+        },
+        "simpleAlign.num13": {
+          "type": "number",
+          "default": 16,
+          "description": "assign 到 被赋值的信号之间的空格+1"
+        },
+        "simpleAlign.num14": {
+          "type": "number",
+          "default": 30,
+          "description": "assign 的 被赋值的信号 + 后面的空格长度"
+        },
+        "simpleAlign.num15": {
+          "type": "number",
+          "default": 8,
+          "description": "实例化信号 ' . ' 左侧与行首的距离"
+        },
+        "simpleAlign.num16": {
+          "type": "number",
+          "default": 20,
+          "description": "实例化模块中最长信号名到 (连接信号) 之间的空格数"
+        },
+        "simpleAlign.num17": {
+          "type": "number",
+          "default": 32,
+          "description": "实例化模块 (连接信号) 括号内的总宽度空格数"
+        },
+        "simpleAlign.upbound": {
+          "type": "number",
+          "default": 2,
+          "description": "位宽 [] 内的上限空格数"
+        },
+        "simpleAlign.lowbound": {
+          "type": "number",
+          "default": 2,
+          "description": "位宽 [] 内的下限空格数"
+        }
+      }
+    }
   },
   "repository": {
     "type": "git",
@@ -74,5 +177,16 @@
   "scripts": {
     "compile": "tsc -p ./",
     "watch": "tsc -watch -p ./"
+  },
+  "dependencies": {
+    "@types/vscode": "^1.36.0",
+    "@vscode/test-electron": "^2.0.0",
+    "glob": "^9.0.0",
+    "mkdirp": "^1.0.0"
+  },
+  "devDependencies": {
+    "@types/jest": "^29.5.14",
+    "@types/mocha": "^10.0.10",
+    "@types/node": "^22.15.3"
   }
 }
