@@ -37,6 +37,10 @@
       {
         "command": "adolphAlign.refresh",
         "title": "Refresh Adolph Align"
+      },
+      {
+        "command": "verilogTree.refresh",
+        "title": "Refresh Verilog Tree"
       }
     ],
     "keybindings": [
@@ -177,6 +181,15 @@
           "icon": "./cion.png",
           "id": "adolphAlignTreeView",
           "name": "Adolph Align"
+        }
+      ]
+    },
+    "menus": {
+      "view/title": [
+        {
+          "command": "verilogTree.refresh",
+          "group": "navigation",
+          "when": "view == verilogTree"
         }
       ]
     }
