@@ -12,10 +12,8 @@
   ],
   "icon": "icon.png",
   "activationEvents": [
-    "onCommand:adolph-align.left",
-    "onCommand:adolph-align.center",
-    "onCommand:adolph-align.right",
-    "onCommand:adolph-align.align"
+    "workspaceContains:**/*.v",
+    "onView:adolphAlignView"
   ],
   "main": "./out/extension.js",
   "contributes": {
@@ -35,6 +33,10 @@
       {
         "command": "adolph-align.align",
         "title": "Align Verilog Code"
+      },
+      {
+        "command": "adolphAlign.refresh",
+        "title": "Refresh Adolph Align"
       }
     ],
     "keybindings": [
@@ -168,6 +170,15 @@
           "description": "位宽 [] 内的下限空格数"
         }
       }
+    },
+    "views": {
+      "explorer": [
+        {
+          "icon": "./cion.png",
+          "id": "adolphAlignTreeView",
+          "name": "Adolph Align"
+        }
+      ]
     }
   },
   "repository": {
@@ -182,7 +193,8 @@
     "@types/vscode": "^1.36.0",
     "@vscode/test-electron": "^2.0.0",
     "glob": "^9.0.0",
-    "mkdirp": "^1.0.0"
+    "mkdirp": "^1.0.0",
+    "vscode": "^1.1.37"
   },
   "devDependencies": {
     "@types/jest": "^29.5.14",
