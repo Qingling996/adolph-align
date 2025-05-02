@@ -43,9 +43,16 @@ export function activate(context: vscode.ExtensionContext) {
   registerSnippets(context, 'verilog');
   registerSnippets(context, 'vhdl');
 
+  // 获取当前工作区根目录
+  const workspaceRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
+  if (!workspaceRoot) {
+    vscode.window.showErrorMessage('未找到工作区根目录');
+    return;
+  }
+
   // 注册文件树提供程序
   console.log('注册文件树提供程序');
-  const treeDataProvider = new VerilogTreeDataProvider();
+  const treeDataProvider = new VerilogTreeDataProvider(workspaceRoot); // 传递 workspaceRoot 参数
   vscode.window.registerTreeDataProvider('adolphAlignTreeView', treeDataProvider);
 
   // 注册刷新文件树的命令
