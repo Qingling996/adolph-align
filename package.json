@@ -178,7 +178,7 @@
     "views": {
       "explorer": [
         {
-          "icon": "./cion.png",
+          "icon": "./icon.png",
           "id": "adolphAlignTreeView",
           "name": "Adolph Align"
         }
@@ -187,16 +187,16 @@
     "menus": {
       "view/title": [
         {
-          "command": "verilogTree.refresh",
+          "command": "adolphAlign.refresh",
           "group": "navigation",
-          "when": "view == verilogTree"
+          "when": "view == adolphAlignTreeView"
         }
       ]
     }
   },
   "repository": {
-    "type": "git",
-    "url": "https://github.com/Qingling996/Parentheses-align.git"
+    "type": "github 仓库",
+    "url": "https://github.com/Qingling996/adolph-align"
   },
   "scripts": {
     "compile": "tsc -p ./",

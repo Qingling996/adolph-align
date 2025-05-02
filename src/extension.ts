@@ -11,6 +11,7 @@ export function activate(context: vscode.ExtensionContext) {
 
   // 注册 Verilog 对齐命令
   const alignCommand = vscode.commands.registerCommand('adolph-align.align', () => {
+    console.log('执行 Verilog 对齐命令');
     const editor = vscode.window.activeTextEditor;
     if (!editor) return;
 
@@ -32,36 +33,28 @@ export function activate(context: vscode.ExtensionContext) {
   context.subscriptions.push(alignCommand);
 
   // 注册括号对齐命令
+  console.log('注册括号对齐命令');
   registerAlignmentCommand(context, 'left');
   registerAlignmentCommand(context, 'center');
   registerAlignmentCommand(context, 'right');
 
   // 注册 snippets
+  console.log('注册 snippets');
   registerSnippets(context, 'verilog');
   registerSnippets(context, 'vhdl');
 
   // 注册文件树提供程序
+  console.log('注册文件树提供程序');
   const treeDataProvider = new VerilogTreeDataProvider();
   vscode.window.registerTreeDataProvider('adolphAlignTreeView', treeDataProvider);
 
   // 注册刷新文件树的命令
+  console.log('注册刷新文件树命令');
   const refreshCommand = vscode.commands.registerCommand('adolphAlign.refresh', () => {
+    console.log('执行刷新文件树命令');
     treeDataProvider.refresh();
   });
   context.subscriptions.push(refreshCommand);
-
-  // 注册文件更改监听器（可选）
-  const watcher = vscode.workspace.createFileSystemWatcher('**/*.v');
-  watcher.onDidChange(() => {
-    // 添加防抖逻辑，避免频繁刷新
-    if (treeDataProvider.debounceTimeout) {
-      clearTimeout(treeDataProvider.debounceTimeout);
-    }
-    treeDataProvider.debounceTimeout = setTimeout(() => {
-      treeDataProvider.refresh();
-    }, 500); // 设置防抖时间为 500ms
-  });
-  context.subscriptions.push(watcher);
 }
 
 // 注册 snippets
