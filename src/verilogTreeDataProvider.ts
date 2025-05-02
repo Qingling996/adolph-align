@@ -13,34 +13,60 @@ interface VerilogModule {
   instances: VerilogInstance[]; // 实例列表
 }
 
-export class VerilogTreeDataProvider implements vscode.TreeDataProvider<VerilogModule> {
-  private _onDidChangeTreeData: vscode.EventEmitter<VerilogModule | undefined> = new vscode.EventEmitter<VerilogModule | undefined>();
-  readonly onDidChangeTreeData: vscode.Event<VerilogModule | undefined> = this._onDidChangeTreeData.event;
+export class VerilogTreeDataProvider implements vscode.TreeDataProvider<VerilogModule | VerilogInstance> {
+  private _onDidChangeTreeData: vscode.EventEmitter<VerilogModule | VerilogInstance | undefined> = new vscode.EventEmitter<VerilogModule | VerilogInstance | undefined>();
+  readonly onDidChangeTreeData: vscode.Event<VerilogModule | VerilogInstance | undefined> = this._onDidChangeTreeData.event;
 
-  constructor(private workspaceRoot: string) {}
+  private modules: VerilogModule[] = []; // 所有模块
+  private rootModules: VerilogModule[] = []; // 根节点模块
+
+  constructor(private workspaceRoot: string) {
+    this.initialize();
+  }
 
   refresh(): void {
     this._onDidChangeTreeData.fire(undefined);
   }
 
-  getTreeItem(element: VerilogModule): vscode.TreeItem {
-    return {
-      label: element.name,
-      collapsibleState: vscode.TreeItemCollapsibleState.Collapsed,
-      command: {
-        command: 'vscode.open',
-        title: 'Open File',
-        arguments: [vscode.Uri.file(element.filePath)],
-      },
-    };
+  getTreeItem(element: VerilogModule | VerilogInstance): vscode.TreeItem {
+    if ('filePath' in element) {
+      // 模块节点
+      return {
+        label: element.name,
+        collapsibleState: vscode.TreeItemCollapsibleState.Collapsed,
+        command: {
+          command: 'vscode.open',
+          title: 'Open File',
+          arguments: [vscode.Uri.file(element.filePath)],
+        },
+      };
+    } else {
+      // 实例化节点
+      return {
+        label: element.instanceName,
+        collapsibleState: vscode.TreeItemCollapsibleState.Collapsed,
+      };
+    }
   }
 
-  getChildren(element?: VerilogModule): Thenable<VerilogModule[]> {
-    if (element) {
-      return Promise.resolve([]); // 暂时不支持子节点
+  getChildren(element?: VerilogModule | VerilogInstance): Thenable<VerilogModule[] | VerilogInstance[]> {
+    if (!element) {
+      // 根节点：显示所有根模块
+      return Promise.resolve(this.rootModules);
+    } else if ('filePath' in element) {
+      // 模块节点：显示其实例化节点
+      return Promise.resolve(element.instances);
     } else {
-      return this.findVerilogFiles(this.workspaceRoot);
+      // 实例化节点：显示其对应的模块的实例化节点
+      const module = this.modules.find(m => m.name === element.moduleName);
+      return Promise.resolve(module ? module.instances : []);
     }
+  }
+
+  private async initialize() {
+    this.modules = await this.findVerilogFiles(this.workspaceRoot);
+    this.rootModules = this.findRootModules(this.modules);
+    this.refresh();
   }
 
   private async findVerilogFiles(folderPath: string): Promise<VerilogModule[]> {
@@ -91,11 +117,29 @@ export class VerilogTreeDataProvider implements vscode.TreeDataProvider<VerilogM
       // 解析实例化
       const instances: VerilogInstance[] = [];
       const instanceRegex = /(\b\w+\b)\s+(\w+)\s*\(/g;
+
+      // 需要过滤的关键字列表
+      const keywordsToFilter = [
+        'begin', 'else', 'if', 'case', 'end', 'assign', 'integer', 'for', 'while', 'repeat', 'initial', 'always',
+        'task', 'function', 'reg', 'wire', 'input', 'output', 'inout', 'parameter', 'localparam', 'generate',
+        'default', 'posedge', 'negedge', 'wait', 'disable', 'fork', 'join', 'forever', 'casex', 'casez', 'deassign',
+        'force', 'release', 'specify', 'endspecify', 'specparam', 'time', 'real', 'realtime', 'event', 'wait',
+        'disable', 'fork', 'join', 'forever', 'casex', 'casez', 'deassign', 'force', 'release', 'specify', 'endspecify',
+        'specparam', 'time', 'real', 'realtime', 'event'
+      ];
+
       let instanceMatch;
       while ((instanceMatch = instanceRegex.exec(cleanedContent)) !== null) {
         const moduleInstanceName = instanceMatch[1];
         const instanceName = instanceMatch[2];
-        instances.push({ instanceName, moduleName: moduleInstanceName });
+        console.log(`找到实例化: ${moduleInstanceName} ${instanceName}`);
+
+        // 过滤掉关键字
+        if (!keywordsToFilter.includes(moduleInstanceName) && !keywordsToFilter.includes(instanceName)) {
+          instances.push({ instanceName, moduleName: moduleInstanceName });
+        } else {
+          console.log(`忽略关键字: ${moduleInstanceName} ${instanceName}`);
+        }
       }
 
       return { name: moduleName, filePath, instances };
@@ -113,5 +157,16 @@ export class VerilogTreeDataProvider implements vscode.TreeDataProvider<VerilogM
     // 移除宏定义
     content = content.replace(/`\w+\s+.*$/gm, '');
     return content;
+  }
+
+  private findRootModules(modules: VerilogModule[]): VerilogModule[] {
+    const calledModules = new Set<string>();
+    for (const module of modules) {
+      for (const instance of module.instances) {
+        calledModules.add(instance.moduleName);
+      }
+    }
+
+    return modules.filter(module => !calledModules.has(module.name));
   }
 }
