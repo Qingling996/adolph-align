@@ -8,6 +8,11 @@ interface VerilogModule {
   instances: { instanceName: string; moduleName: string }[];
 }
 
+interface VerilogInstance {
+  instanceName: string; // 实例名称
+  moduleName: string;   // 模块名称
+}
+
 export class VerilogTreeDataProvider implements vscode.TreeDataProvider<vscode.TreeItem> {
   private _onDidChangeTreeData: vscode.EventEmitter<vscode.TreeItem | undefined> = new vscode.EventEmitter<vscode.TreeItem | undefined>();
   readonly onDidChangeTreeData: vscode.Event<vscode.TreeItem | undefined> = this._onDidChangeTreeData.event;
@@ -59,19 +64,19 @@ export class VerilogTreeDataProvider implements vscode.TreeDataProvider<vscode.T
       console.log('未找到工作区文件夹');
       return;
     }
-
+  
     this.modules = [];
     this.moduleMap.clear();
-
+  
     for (const folder of workspaceFolders) {
       const folderPath = folder.uri.fsPath;
       console.log('解析文件夹:', folderPath);
       const files = await this.findVerilogFiles(folderPath);
-
+  
       for (const file of files) {
         const filePath = file;
         console.log('解析文件:', filePath);
-
+  
         const content = await fs.promises.readFile(filePath, 'utf-8');
         const module = this.parseVerilogModule(content, filePath);
         if (module) {
@@ -81,44 +86,85 @@ export class VerilogTreeDataProvider implements vscode.TreeDataProvider<vscode.T
         }
       }
     }
-
+  
     console.log('Verilog 文件解析完成，找到模块数量:', this.modules.length);
   }
-
+  
   private async findVerilogFiles(folderPath: string): Promise<string[]> {
-    const files = await fs.promises.readdir(folderPath);
-    return files
-      .filter(file => file.endsWith('.v') || file.endsWith('.sv'))
-      .map(file => path.join(folderPath, file));
+    const files: string[] = [];
+    const readDir = async (dir: string) => {
+      const entries = await fs.promises.readdir(dir, { withFileTypes: true });
+      for (const entry of entries) {
+        const fullPath = path.join(dir, entry.name);
+        if (entry.isDirectory()) {
+          await readDir(fullPath); // 递归查找子文件夹
+        } else if (entry.isFile() && (entry.name.endsWith('.v') || entry.name.endsWith('.sv'))) {
+          files.push(fullPath);
+        }
+      }
+    };
+    await readDir(folderPath);
+    return files;
+  }
+  
+  private removeComments(content: string): string {
+    // 移除单行注释
+    content = content.replace(/\/\/.*$/gm, '');
+    // 移除多行注释
+    content = content.replace(/\/\*[\s\S]*?\*\//g, '');
+    return content;
+  }
+  
+  private removeMacros(content: string): string {
+    // 移除宏定义
+    content = content.replace(/`\w+\s+.*$/gm, '');
+    return content;
   }
 
-  private parseVerilogModule(content: string, filePath: string): VerilogModule | undefined {
-    const moduleRegex = /module\s+(\w+)\s*\(/;
-    const instanceRegex = /(\w+)\s+(\w+)\s*\(/;
+  private removeInvisibleCharacters(content: string): string {
+    // 移除多余的空格和换行符
+    content = content.replace(/\s+/g, ' ').trim();
+    return content;
+  }
+  
+  private async parseVerilogModule(filePath: string): Promise<VerilogModule | undefined> {
+  try {
+    // 读取文件内容
+    const content = await fs.promises.readFile(filePath, 'utf-8');
+    console.log(`文件内容: ${content}`); // 打印文件内容
 
-    const moduleMatch = content.match(moduleRegex);
+    // 移除不可见字符、注释和宏定义
+    const cleanedContent = this.removeInvisibleCharacters(content);
+    const withoutComments = this.removeComments(cleanedContent);
+    const finalContent = this.removeMacros(withoutComments);
+
+    // 解析模块定义
+    const moduleRegex = /module\s+(\w+)\s*(?:\([^)]*\))?\s*(?:;|\n|\{)/gm;
+    const moduleMatch = moduleRegex.exec(finalContent);
     if (!moduleMatch) {
-      console.log('未找到模块定义:', filePath);
+      console.error(`未找到模块定义: ${filePath}`);
       return undefined;
     }
 
     const moduleName = moduleMatch[1];
-    const instances: { instanceName: string; moduleName: string }[] = [];
+    console.log(`解析模块: ${moduleName}, 文件: ${filePath}`);
 
+    // 解析实例化
+    const instances: VerilogInstance[] = [];
+    const instanceRegex = /(\b\w+\b)\s+(\w+)\s*\(/g;
     let instanceMatch;
-    while ((instanceMatch = instanceRegex.exec(content)) !== null) {
-      instances.push({
-        instanceName: instanceMatch[2],
-        moduleName: instanceMatch[1]
-      });
+    while ((instanceMatch = instanceRegex.exec(finalContent)) !== null) {
+      const moduleInstanceName = instanceMatch[1];
+      const instanceName = instanceMatch[2];
+      instances.push({ instanceName, moduleName: moduleInstanceName });
     }
 
-    return {
-      name: moduleName,
-      filePath,
-      instances
-    };
+    return { name: moduleName, filePath, instances };
+  } catch (error) {
+    console.error(`读取文件失败: ${filePath}`, error);
+    return undefined;
   }
+}
 
   private getTopLevelModules(): vscode.TreeItem[] {
     console.log('生成根节点 TreeItem');
