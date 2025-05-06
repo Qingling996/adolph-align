@@ -35,12 +35,8 @@
         "title": "Align Verilog Code"
       },
       {
-        "command": "adolphAlign.refresh",
-        "title": "Refresh Adolph Align"
-      },
-      {
-        "command": "verilogTree.refresh",
-        "title": "Refresh Verilog Tree"
+        "command": "verilogFileTree.refresh",
+        "title": "刷新 Verilog 文件树"
       }
     ],
     "keybindings": [
@@ -179,17 +175,16 @@
       "explorer": [
         {
           "icon": "./icon.png",
-          "id": "adolphAlignTreeView",
-          "name": "Adolph Align"
+          "id": "verilogFileTree",
+          "name": "Verilog 文件树"
         }
       ]
     },
     "menus": {
-      "view/title": [
+      "view/title/context": [
         {
-          "command": "adolphAlign.refresh",
-          "group": "navigation",
-          "when": "view == adolphAlignTreeView"
+          "command": "verilogFileTree.refresh",
+          "when": "view == verilogFileTree"
         }
       ]
     }

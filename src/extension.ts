@@ -4,7 +4,9 @@ import * as path from 'path';
 
 import { alignVerilogCode } from './aligner'; // 导入端口/常量/变量声明对齐功能
 import { registerAlignmentCommand } from './alignParentheses'; // 导入括号对齐功能
-import { VerilogTreeDataProvider } from './verilogTreeDataProvider'; // 导入文件树功能
+// import { VerilogTreeDataProvider } from './verilogTreeDataProvider'; // 导入文件树功能
+import { VerilogFileTreeProvider } from './VerilogFileTreeProvider';
+
 
 export function activate(context: vscode.ExtensionContext) {
   console.log('ADOLPH ALIGN 插件已激活');
@@ -50,18 +52,15 @@ export function activate(context: vscode.ExtensionContext) {
     return;
   }
 
-  // 注册文件树提供程序
-  console.log('注册文件树提供程序');
-  const treeDataProvider = new VerilogTreeDataProvider(workspaceRoot); // 传递 workspaceRoot 参数
-  vscode.window.registerTreeDataProvider('adolphAlignTreeView', treeDataProvider);
+  // 注册 Verilog 文件树视图
+  const verilogTreeProvider = new VerilogFileTreeProvider();
+  vscode.window.registerTreeDataProvider('verilogFileTree', verilogTreeProvider);
 
-  // 注册刷新文件树的命令
-  console.log('注册刷新文件树命令');
-  const refreshCommand = vscode.commands.registerCommand('adolphAlign.refresh', () => {
-    console.log('执行刷新文件树命令');
-    treeDataProvider.refresh();
-  });
+  // 注册刷新命令
+  context.subscriptions.push(vscode.commands.registerCommand('verilogFileTree.refresh', () => verilogTreeProvider.refresh()));
+  const refreshCommand = vscode.commands.registerCommand('verilogFileTree.refresh', () => verilogTreeProvider.refresh());
   context.subscriptions.push(refreshCommand);
+
 }
 
 // 注册 snippets
