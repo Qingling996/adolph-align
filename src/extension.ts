@@ -4,9 +4,7 @@ import * as path from 'path';
 
 import { alignVerilogCode } from './aligner'; // 导入端口/常量/变量声明对齐功能
 import { registerAlignmentCommand } from './alignParentheses'; // 导入括号对齐功能
-// import { VerilogTreeDataProvider } from './verilogTreeDataProvider'; // 导入文件树功能
-import { VerilogFileTreeProvider } from './VerilogFileTreeProvider';
-
+import { VerilogTreeDataProvider } from './VerilogTreeDataProvider'; // 导入文件树功能
 
 export function activate(context: vscode.ExtensionContext) {
   console.log('ADOLPH ALIGN 插件已激活');
@@ -53,14 +51,12 @@ export function activate(context: vscode.ExtensionContext) {
   }
 
   // 注册 Verilog 文件树视图
-  const verilogTreeProvider = new VerilogFileTreeProvider();
+  const verilogTreeProvider = new VerilogTreeDataProvider(workspaceRoot);
   vscode.window.registerTreeDataProvider('verilogFileTree', verilogTreeProvider);
 
   // 注册刷新命令
-  context.subscriptions.push(vscode.commands.registerCommand('verilogFileTree.refresh', () => verilogTreeProvider.refresh()));
   const refreshCommand = vscode.commands.registerCommand('verilogFileTree.refresh', () => verilogTreeProvider.refresh());
   context.subscriptions.push(refreshCommand);
-
 }
 
 // 注册 snippets
