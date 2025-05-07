@@ -11,14 +11,32 @@ export class VerilogTreeDataProvider implements vscode.TreeDataProvider<ModuleNo
   private rootModules: ModuleNode[] = []; // 存储根节点
   private logFilePath: string; // 日志文件路径
 
-  // Verilog 关键字列表
-  private verilogKeywords = new Set([
-    'module', 'begin', 'if', 'else', 'end', 'always', 'assign', 'case', 'default', 'for', 'function', 'initial', 'repeat', 'while', 'fork', 'join', 'generate', 'endgenerate', 'task', 'endtask', 'integer', 'reg', 'wire', 'input', 'output', 'inout', 'parameter', 'localparam'
-  ]);
+  // 定义 verilogKeywords 属性
+  private verilogKeywords: Set<string>;
 
   constructor(workspaceRoot: string | undefined) {
     this.workspaceRoot = workspaceRoot;
     this.logFilePath = path.join(workspaceRoot || __dirname, 'log.txt'); // 设置日志文件路径
+
+    // 初始化 verilogKeywords
+    this.verilogKeywords = new Set([
+      "module", "input", "output", "inout", "wire", "reg", "parameter", "localparam",
+      "always", "assign", "begin", "end", "if", "else", "case", "default", "for", "while",
+      "function", "task", "initial", "forever", "repeat", "posedge", "negedge", "or", "and",
+      "xor", "not", "buf", "nand", "nor", "xnor", "real", "integer", "time", "event", "wait",
+      "disable", "fork", "join", "specify", "endspecify", "specparam", "defparam", "include",
+      "define", "ifdef", "ifndef", "else", "elsif", "endif", "timescale", "generate", "endgenerate",
+      "cell", "endcell", "config", "endconfig", "library", "endlibrary", "use", "design", "enddesign",
+      "primitive", "endprimitive", "table", "endtable", "edge", "scalared", "vectored", "signed",
+      "unsigned", "highz0", "highz1", "small", "medium", "large", "pull0", "pull1", "strong0",
+      "strong1", "supply0", "supply1", "tri0", "tri1", "triand", "trior", "trireg", "wand", "wor",
+      "worst", "weak0", "weak1", "rtran", "rtranif0", "rtranif1", "tran", "tranif0", "tranif1",
+      "cmos", "rcmos", "nmos", "pmos", "rnmos", "rpmos", "pullup", "pulldown", "bufif0", "bufif1",
+      "notif0", "notif1", "casex", "casez", "deassign", "force", "release", "with", "within",
+      "endprimitive", "endtable", "endtask", "endfunction", "endgenerate", "endmodule", "endconfig",
+      "endlibrary", "enddesign", "endcell", "endspecify"
+    ]);
+
     this.refresh();
   }
 
@@ -82,7 +100,18 @@ export class VerilogTreeDataProvider implements vscode.TreeDataProvider<ModuleNo
     });
   }
 
-  // 预处理文件
+  // 预处理文件内容：移除实例化中的参数化部分
+  private preprocessFileContent(content: string): string {
+    // 匹配从 `#` 开始，直到连续两个 `)` 的内容
+    const instanceParamRegex = /#\s*\([^)]*\)\s*\)/g;
+
+    // 移除匹配到的参数化部分
+    content = content.replace(instanceParamRegex, '');
+
+    return content;
+  }
+
+  // 移除注释和宏定义
   private removeCommentsAndMacros(content: string): string {
     // 移除单行注释
     content = content.replace(/\/\/.*$/gm, '');
@@ -97,48 +126,92 @@ export class VerilogTreeDataProvider implements vscode.TreeDataProvider<ModuleNo
     return content;
   }
 
+  // 获取当前日期和时间的工具函数
+  private getCurrentDateTime(): string {
+    const now = new Date();
+    return now.toLocaleString();
+  }
+
+  // 记录日志到文件
+  private log(message: string) {
+    const timestamp = this.getCurrentDateTime();
+    fs.appendFileSync(this.logFilePath, `[${timestamp}] ${message}\n`);
+  }
+
   // 解析单个 .v 文件
   private parseVerilogFile(filePath: string) {
     const content = fs.readFileSync(filePath, 'utf-8');
-  
-    // 过滤注释和宏定义
-    const filteredContent = this.removeCommentsAndMacros(content);
-  
+
+    // 预处理文件内容：移除实例化中的参数化部分
+    const preprocessedContent = this.preprocessFileContent(content);
+
+    // 提取模块端口、实例化和 endmodule
+    const filteredContent = this.extractModuleInfo(preprocessedContent);
+
+    // 将提取的内容输出到日志
+    this.log(`Filtered content of file: ${filePath}\n${filteredContent}`);
+
     // 查找模块定义
-    const moduleRegex = /module\s+(\w+)\s*(?:#\s*\([^)]*\))?\s*(?:\([^)]*\))?\s*;/g;
+    const moduleRegex = /module\s+(\w+)\s*(?:\([^)]*\))?\s*;/g;
     let match;
     while ((match = moduleRegex.exec(filteredContent)) !== null) {
-      const moduleName = match[1];
-      this.log(`Found module: ${moduleName} in file: ${filePath}`);
-      if (!this.moduleMap.has(moduleName)) {
-        this.moduleMap.set(moduleName, {
-          filePath,
-          instances: new Set(),
-          isRoot: true, // 默认标记为根节点
-        });
-      }
+        const moduleName = match[1];
+        this.log(`Found module: ${moduleName} in file: ${filePath}`);
+        if (!this.moduleMap.has(moduleName)) {
+            this.moduleMap.set(moduleName, {
+                filePath,
+                instances: new Set(),
+                isRoot: true, // 默认标记为根节点
+            });
+        }
     }
-  
-    // 查找模块实例化（包括带有参数化端口的实例化）
-    const instanceRegex = /(\w+)\s*(?:#\s*\([^)]*\))?\s+(\w+)\s*\([\s\S]*?\);/g;
+
+    // 查找模块实例化
+    const instanceRegex = /(\w+)\s+(\w+)\s*\([^;]*\);/g;
     let instanceMatch;
     while ((instanceMatch = instanceRegex.exec(filteredContent)) !== null) {
-      const instanceName = instanceMatch[1];
-      const instanceInstance = instanceMatch[2];
-      const instanceCode = instanceMatch[0]; // 获取实例化的完整代码片段
-  
-      // 过滤 Verilog 关键字
-      if (!this.verilogKeywords.has(instanceName)) {
-        this.log(`Found instance: ${instanceName} (${instanceInstance}) in file: ${filePath}`);
-        this.log(`Instance code:\n${instanceCode}`); // 记录实例化的代码片段
-        if (this.moduleMap.has(instanceName)) {
-          this.moduleMap.get(instanceName)!.isRoot = false; // 如果被实例化，则取消根节点标记
-          this.moduleMap.get(instanceName)!.instances.add(instanceInstance);
+        const instanceName = instanceMatch[1];
+        const instanceInstance = instanceMatch[2];
+        const instanceCode = instanceMatch[0]; // 获取实例化的完整代码片段
+
+        // 过滤 Verilog 关键字
+        if (!this.verilogKeywords.has(instanceName) && !this.verilogKeywords.has(instanceInstance)) {
+            this.log(`Found instance: ${instanceName} (${instanceInstance}) in file: ${filePath}`);
+            this.log(`Instance code:\n${instanceCode}`); // 记录实例化的代码片段
+            if (this.moduleMap.has(instanceName)) {
+                this.moduleMap.get(instanceName)!.isRoot = false; // 如果被实例化，则取消根节点标记
+                this.moduleMap.get(instanceName)!.instances.add(instanceInstance);
+            }
         }
-      }
     }
   }
-  
+
+  // 提取模块端口、实例化和 endmodule
+  private extractModuleInfo(content: string): string {
+    // 匹配模块端口定义
+    const modulePortRegex = /module\s+\w+\s*\([^)]*\)\s*;/g;
+
+    // 匹配模块实例化
+    const instanceRegex = /\w+\s+\w+\s*\([^;]*\);/g;
+
+    // 匹配 endmodule
+    const endmoduleRegex = /endmodule/g;
+
+    // 提取匹配的内容
+    const modulePorts = content.match(modulePortRegex) || [];
+    const instances = content.match(instanceRegex) || [];
+    const endmodules = content.match(endmoduleRegex) || [];
+
+    // 合并提取的内容
+    const filteredContent = [
+        ...modulePorts,
+        ...instances,
+        ...endmodules,
+    ].join('\n');
+
+    return filteredContent;
+  }
+
   // 构建模块调用关系
   private buildModuleHierarchy() {
     // 首先将所有未被实例化的模块标记为根节点
@@ -188,11 +261,6 @@ export class VerilogTreeDataProvider implements vscode.TreeDataProvider<ModuleNo
       }
     }
     return undefined;
-  }
-
-  // 记录日志到文件
-  private log(message: string) {
-    fs.appendFileSync(this.logFilePath, `${message}\n`);
   }
 }
 
