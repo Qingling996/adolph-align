@@ -81,8 +81,14 @@ export class VerilogTreeDataProvider implements vscode.TreeDataProvider<ModuleNo
     // 正则表达式匹配模块名
     const moduleRegex = /module\s+(\w+)\s*(?:#\s*\([^)]*\))?\s*\(/g;
     // 正则表达式匹配实例化名称（支持带参数和不带参数）
-    const instanceRegex = /(\w+)\s*(?:#\s*\([\s\S]*?\))?\s+(\w+)\s*\([\s\S]*?\)/gs;
-
+    const instanceRegex = /(\w+)\s*(?:#\s*\([\s\S]*?\))?\s*(\w+)\s*\([\s\S]*?\)/gs; //async_fifo可以识别，switch_ccdl没有识别
+    // const instanceRegex = /(\w+)\s*(?:#\s*\([^\)]*\))?\s+(\w+)\s*\([^\)]*\)/g;      //async_fifo可以识别，switch_ccdl可以识别，但多了一堆乱七八糟的（内部的端口，信号，参数等都被识别为实例）
+    // const instanceRegex = /(\w+)\s*(?:#\s*\([^\)]*\))?\s+(\w+)\s*\([^;]*?\);/g;     //async_fifo没有识别，switch_ccdl没有识别
+    // const instanceRegex = /(\w+)\s*(?:#\s*\([^\)]*\))?\s+(\w+)\s*\([^\)]*?\)\s*;/g; //这个东西就更少了，最差的版本  
+    // const instanceRegex = /(\w+)\s*(?:#\s*\([^\)]*\))?\s+(\w+)\s*\([^;]*?\)\s*;/g; //async_fifo没有识别，switch_ccdl没有识别
+    // const instanceRegex = /(\w+)\s*(?:#\s*\([^\)]*\))?\s*(\w+)\s*\([^;]*?\)\s*;/g;
+    // const instanceRegex = /(\b\w+\b)\s*(?:#\s*\([^\)]*\))?\s*(\b\w+\b)\s*\([^;]*?\)\s*;/g;
+    
     const logContent: string[] = [];
   
     // 提取模块名
