@@ -74,18 +74,14 @@ export class VerilogTreeDataProvider implements vscode.TreeDataProvider<ModuleNo
       }
     });
   }
-  
+
   private parseVerilogFile(filePath: string) {
     const content = fs.readFileSync(filePath, 'utf-8');
   
     // 正则表达式匹配模块名
-    const moduleRegex = /module\s+(\w+)\s*\(/g;
-    // 正则表达式匹配带有参数的模块名
-    const moduleWithParamsRegex = /module\s+(\w+)\s*#\s*\([^)]*\)\s*\(/g;
-    // 正则表达式匹配实例化名称
-    const instanceRegex = /(\w+)\s+(\w+)\s*\(/g;
-    // 正则表达式匹配带有参数的实例化名称
-    const instanceWithParamsRegex = /(\w+)\s+#\s*\([^)]*\)\s+(\w+)\s*\(/g;
+    const moduleRegex = /module\s+(\w+)\s*(?:#\s*\([^)]*\))?\s*\(/g;
+    // 正则表达式匹配实例化名称（支持带参数和不带参数）
+    const instanceRegex = /(\w+)\s*(?:#\s*\([^)]*\))?\s+(\w+)\s*\([^)]*\)/gs;
   
     const logContent: string[] = [];
   
@@ -98,31 +94,11 @@ export class VerilogTreeDataProvider implements vscode.TreeDataProvider<ModuleNo
       logContent.push(this.formatLogEntry(`Module: ${moduleName}`));
     }
   
-    // 提取带有参数的模块名
-    let moduleWithParamsMatch;
-    while ((moduleWithParamsMatch = moduleWithParamsRegex.exec(content)) !== null) {
-      const moduleName = moduleWithParamsMatch[1];
-      moduleNames.push(moduleName); // 保存模块名
-      logContent.push(this.formatLogEntry(`Module: ${moduleName}`));
-    }
-  
     // 提取实例化名称
     let instanceMatch;
     while ((instanceMatch = instanceRegex.exec(content)) !== null) {
       const instanceType = instanceMatch[1]; // 实例类型
       const instanceName = instanceMatch[2]; // 实例名称
-  
-      // 过滤掉 Verilog 关键字和模块名
-      if (!this.isVerilogKeyword(instanceName) && !this.isVerilogKeyword(instanceType) && !moduleNames.includes(instanceName)) {
-        logContent.push(this.formatLogEntry(`Instance: ${instanceName} (Type: ${instanceType})`));
-      }
-    }
-  
-    // 提取带有参数的实例化名称
-    let instanceWithParamsMatch;
-    while ((instanceWithParamsMatch = instanceWithParamsRegex.exec(content)) !== null) {
-      const instanceType = instanceWithParamsMatch[1]; // 实例类型
-      const instanceName = instanceWithParamsMatch[2]; // 实例名称
   
       // 过滤掉 Verilog 关键字和模块名
       if (!this.isVerilogKeyword(instanceName) && !this.isVerilogKeyword(instanceType) && !moduleNames.includes(instanceName)) {
