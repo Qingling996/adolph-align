@@ -100,17 +100,6 @@ export class VerilogTreeDataProvider implements vscode.TreeDataProvider<ModuleNo
     });
   }
 
-  // 预处理文件内容：移除实例化中的参数化部分
-  private preprocessFileContent(content: string): string {
-    // 匹配从 `#` 开始，直到连续两个 `)` 的内容
-    const instanceParamRegex = /#\s*\([^)]*\)\s*\)/g;
-
-    // 移除匹配到的参数化部分
-    content = content.replace(instanceParamRegex, '');
-
-    return content;
-  }
-
   // 移除注释和宏定义
   private removeCommentsAndMacros(content: string): string {
     // 移除单行注释
@@ -138,11 +127,35 @@ export class VerilogTreeDataProvider implements vscode.TreeDataProvider<ModuleNo
     fs.appendFileSync(this.logFilePath, `[${timestamp}] ${message}\n`);
   }
 
+  // 提取模块端口、实例化和 endmodule
+  private extractModuleInfo(content: string): string {
+    // 匹配模块端口定义（确保只匹配一次）
+    const modulePortRegex = /module\s+\w+\s*(?:\([^)]*\))?\s*;/g;
+    const modulePorts = [...new Set(content.match(modulePortRegex) || [])]; // 去重
+
+    // 匹配模块实例化
+    const instanceRegex = /\w+\s+\w+\s*\([^;]*\);/g;
+    const instances = content.match(instanceRegex) || [];
+
+    // 匹配 endmodule
+    const endmoduleRegex = /endmodule/g;
+    const endmodules = content.match(endmoduleRegex) || [];
+
+    // 合并提取的内容
+    const filteredContent = [
+        ...modulePorts,
+        ...instances,
+        ...endmodules,
+    ].join('\n');
+
+    return filteredContent;
+  }
+
   // 解析单个 .v 文件
   private parseVerilogFile(filePath: string) {
     const content = fs.readFileSync(filePath, 'utf-8');
 
-    // 预处理文件内容：移除实例化中的参数化部分
+    // 预处理文件内容：移除注释和参数化部分
     const preprocessedContent = this.preprocessFileContent(content);
 
     // 提取模块端口、实例化和 endmodule
@@ -155,7 +168,7 @@ export class VerilogTreeDataProvider implements vscode.TreeDataProvider<ModuleNo
     const moduleRegex = /module\s+(\w+)\s*(?:\([^)]*\))?\s*;/g;
     let match;
     while ((match = moduleRegex.exec(filteredContent)) !== null) {
-        const moduleName = match[1];
+        const moduleName = match[1]; // 提取模块名
         this.log(`Found module: ${moduleName} in file: ${filePath}`);
         if (!this.moduleMap.has(moduleName)) {
             this.moduleMap.set(moduleName, {
@@ -184,32 +197,32 @@ export class VerilogTreeDataProvider implements vscode.TreeDataProvider<ModuleNo
             }
         }
     }
+
+    // 特别处理测试模块（如 tb_ccdl），确保它们被识别为根节点
+    if (filePath.includes('tb_')) {
+        const moduleName = path.basename(filePath, '.v');
+        if (!this.moduleMap.has(moduleName)) {
+            this.moduleMap.set(moduleName, {
+                filePath,
+                instances: new Set(),
+                isRoot: true, // 强制标记为根节点
+            });
+        }
+    }
   }
 
-  // 提取模块端口、实例化和 endmodule
-  private extractModuleInfo(content: string): string {
-    // 匹配模块端口定义
-    const modulePortRegex = /module\s+\w+\s*\([^)]*\)\s*;/g;
+  // 预处理文件内容：移除注释和参数化部分
+  private preprocessFileContent(content: string): string {
+    // 移除单行注释
+    content = content.replace(/\/\/.*$/gm, '');
 
-    // 匹配模块实例化
-    const instanceRegex = /\w+\s+\w+\s*\([^;]*\);/g;
+    // 移除多行注释
+    content = content.replace(/\/\*[\s\S]*?\*\//g, '');
 
-    // 匹配 endmodule
-    const endmoduleRegex = /endmodule/g;
+    // 移除参数化部分
+    content = content.replace(/#\s*\([^)]*\)\s*\)/g, ')');
 
-    // 提取匹配的内容
-    const modulePorts = content.match(modulePortRegex) || [];
-    const instances = content.match(instanceRegex) || [];
-    const endmodules = content.match(endmoduleRegex) || [];
-
-    // 合并提取的内容
-    const filteredContent = [
-        ...modulePorts,
-        ...instances,
-        ...endmodules,
-    ].join('\n');
-
-    return filteredContent;
+    return content;
   }
 
   // 构建模块调用关系
