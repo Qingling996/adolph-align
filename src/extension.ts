@@ -44,41 +44,38 @@ export function activate(context: vscode.ExtensionContext) {
   registerSnippets(context, 'vhdl');
 
   // 获取当前工作区根目录
-  const workspaceRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
-  if (!workspaceRoot) {
-    vscode.window.showErrorMessage('未找到工作区根目录');
-    return;
-  }
+  const workspaceRoot = vscode.workspace.rootPath;
+  const verilogTreeDataProvider = new VerilogTreeDataProvider(workspaceRoot);
 
-  // 注册 Verilog 文件树视图
-  const verilogTreeProvider = new VerilogTreeDataProvider(workspaceRoot);
-  vscode.window.registerTreeDataProvider('verilogFileTree', verilogTreeProvider);
+  vscode.window.registerTreeDataProvider('verilogFileTree', verilogTreeDataProvider);
 
-  // 注册刷新命令
-  const refreshCommand = vscode.commands.registerCommand('verilogFileTree.refresh', () => verilogTreeProvider.refresh());
+  const refreshCommand = vscode.commands.registerCommand('verilogFileTree.refresh', () => {
+    verilogTreeDataProvider.refresh();
+  });
+
   context.subscriptions.push(refreshCommand);
 }
 
-// 注册 snippets
-function registerSnippets(context: vscode.ExtensionContext, language: 'verilog' | 'vhdl') {
-  const snippetsDir = path.join(context.extensionPath, 'snippets');
-  const snippetsPath = path.join(snippetsDir, `${language}.json`);
+  // 注册 snippets
+  function registerSnippets(context: vscode.ExtensionContext, language: 'verilog' | 'vhdl') {
+    const snippetsDir = path.join(context.extensionPath, 'snippets');
+    const snippetsPath = path.join(snippetsDir, `${language}.json`);
 
-  if (fs.existsSync(snippetsPath)) {
-    const snippets = JSON.parse(fs.readFileSync(snippetsPath, 'utf-8'));
+    if (fs.existsSync(snippetsPath)) {
+      const snippets = JSON.parse(fs.readFileSync(snippetsPath, 'utf-8'));
 
-    for (const snippetName in snippets) {
-      const snippet = snippets[snippetName];
-      vscode.languages.registerCompletionItemProvider(language, {
-        provideCompletionItems() {
-          const completionItem = new vscode.CompletionItem(snippet.prefix, vscode.CompletionItemKind.Snippet);
-          completionItem.insertText = new vscode.SnippetString(snippet.body.join('\n'));
-          completionItem.documentation = snippet.description;
-          return [completionItem];
-        }
-      });
+      for (const snippetName in snippets) {
+        const snippet = snippets[snippetName];
+        vscode.languages.registerCompletionItemProvider(language, {
+          provideCompletionItems() {
+            const completionItem = new vscode.CompletionItem(snippet.prefix, vscode.CompletionItemKind.Snippet);
+            completionItem.insertText = new vscode.SnippetString(snippet.body.join('\n'));
+            completionItem.documentation = snippet.description;
+            return [completionItem];
+          }
+        });
+      }
     }
   }
-}
 
 export function deactivate() {}

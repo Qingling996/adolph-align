@@ -37,7 +37,7 @@
       },
       {
         "command": "verilogFileTree.refresh",
-        "title": "刷新 Verilog 文件树"
+        "title": "Refresh Verilog File Tree"
       }
     ],
     "keybindings": [
@@ -172,12 +172,24 @@
         }
       }
     },
-    "views": {
-      "explorer": [
+    "files": [
+      "src",
+      "resources"
+    ],
+    "viewsContainers": {
+      "activitybar": [
         {
-          "icon": "./icon.png",
+          "id": "verilogFileTreeContainer",
+          "title": "Verilog File Tree",
+          "icon": "./container.png"
+        }
+      ]
+    },
+    "views": {
+      "verilogFileTreeContainer": [
+        {
           "id": "verilogFileTree",
-          "name": "Verilog File Tree"
+          "name": " "
         }
       ]
     },
