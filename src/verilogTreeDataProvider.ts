@@ -82,7 +82,7 @@ export class VerilogTreeDataProvider implements vscode.TreeDataProvider<ModuleNo
     const moduleRegex = /module\s+(\w+)\s*(?:#\s*\([^)]*\))?\s*\(/g;
     // 正则表达式匹配实例化名称（支持带参数和不带参数）
     const instanceRegex = /(\w+)\s*(?:#\s*\([^)]*\))?\s+(\w+)\s*\([^)]*\)/gs;
-  
+
     const logContent: string[] = [];
   
     // 提取模块名
