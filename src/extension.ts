@@ -45,10 +45,18 @@ export function activate(context: vscode.ExtensionContext) {
 
   // 获取当前工作区根目录
   const workspaceRoot = vscode.workspace.rootPath;
+  if (!workspaceRoot) {
+    vscode.window.showErrorMessage('No workspace root found.');
+    return;
+  }
+
+  console.log('Workspace Root:', workspaceRoot);
 
   // 注册文件树视图
   const verilogTreeDataProvider = new VerilogTreeDataProvider(workspaceRoot);
   vscode.window.registerTreeDataProvider('verilogFileTree', verilogTreeDataProvider);
+
+  console.log('Verilog File Tree 视图已注册');
 
   // 注册刷新命令
   const refreshCommand = vscode.commands.registerCommand('verilogFileTree.refresh', () => {

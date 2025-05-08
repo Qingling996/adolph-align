@@ -7,6 +7,8 @@
     "rootDir": "src",
     "sourceMap": true,
     "typeRoots": ["./node_modules/@types"],
-    "types": ["node", "mocha"]
+    "types": ["node", "mocha"],
+    "esModuleInterop": true,
+    "allowSyntheticDefaultImports": true
   }
 }

@@ -188,9 +188,8 @@
     "views": {
       "verilogFileTreeContainer": [
         {
-          "icon": " ",
           "id": "verilogFileTree",
-          "name": " "
+          "name": "Verilog File Tree"
         }
       ]
     },
