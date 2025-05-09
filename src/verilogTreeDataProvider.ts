@@ -90,20 +90,8 @@ export class VerilogTreeDataProvider implements vscode.TreeDataProvider<ModuleNo
     // 正则表达式匹配模块名（支持无端口列表的 module 定义）
     const moduleRegex = /module\s+(\w+)\s*(?:#\s*\([^)]*\))?\s*(?:\([^)]*\))?\s*;/g;
     // 正则表达式匹配实例化名称（支持带参数和不带参数）
-    const instanceRegex = /(\b\w+\b)\s*(?:#\s*\([\s\S]*?\))?\s*(\b\w+\b)\s*\([\s\S]*?\)\s*;/gs;
-
-    const testContent = `
-      async_fifo  #(
-          .WIDTH                                 (16                             ),
-          .DEPTH                                 (256                            ) 
-      ) UUT0_CCDL_TX (
-          ...
-      );
-      `;
-    let match;
-    while ((match = instanceRegex.exec(testContent)) !== null) {
-      console.log(`Instance Type: ${match[1]}, Instance Name: ${match[2]}`);
-    }
+    // const instanceRegex = /(\b\w+\b)\s*(?:#\s*\([\s\S]*?\))?\s*(\b\w+\b)\s*\([\s\S]*?\)\s*;/gs;
+    const instanceRegex = /(\b\w+\b)\s*(?:#\s*\([\s\S]*?\))?\s*(\b\w+\b)\s*\([^;]*\)\s*;/gs;
 
     const logContent: string[] = [];
 
@@ -130,6 +118,8 @@ export class VerilogTreeDataProvider implements vscode.TreeDataProvider<ModuleNo
       const instanceType = instanceMatch[1]; // 实例类型
       const instanceName = instanceMatch[2]; // 实例名称
 
+      // console.log(`Matched Instance: ${instanceName} (Type: ${instanceType})`);
+      
       // 过滤掉 Verilog 关键字和模块名
       if (!this.isVerilogKeyword(instanceName) && !this.isVerilogKeyword(instanceType) && !moduleNames.includes(instanceName)) {
         logContent.push(this.formatLogEntry(`Instance: ${instanceName} (Type: ${instanceType})`));
@@ -145,6 +135,10 @@ export class VerilogTreeDataProvider implements vscode.TreeDataProvider<ModuleNo
           if (!this.instanceMap.has(instanceKey)) {
             this.instanceMap.set(instanceKey, { instanceName, moduleName: instanceType });
           }
+          
+          console.log(`Parsing file: ${filePath}`);
+          console.log(`Matched Module: ${moduleName}`);
+          console.log(`Matched Instance: ${instanceName} (Type: ${instanceType})`);
         });
       }
     }
@@ -182,6 +176,7 @@ export class VerilogTreeDataProvider implements vscode.TreeDataProvider<ModuleNo
     console.log('Module Graph:', this.moduleGraph);
     console.log('Instance Map:', this.instanceMap);
     console.log('Root Nodes:', this.rootNodes);
+
   }
 
   // 构建子节点
