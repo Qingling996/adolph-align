@@ -11,6 +11,8 @@ export class VerilogTreeDataProvider implements vscode.TreeDataProvider<ModuleNo
   private rootNodes: ModuleNode[] = [];
   private logFilePath: string | undefined;
   private moduleGraph: Map<string, Set<string>> = new Map(); // 模块关系图
+  private moduleFileMap: Map<string, string> = new Map(); // 模块名到文件路径的映射
+  private instanceMap: Map<string, { instanceName: string, moduleName: string }> = new Map(); // 实例化名称到模块名的映射
 
   // Verilog 关键字列表
   private verilogKeywords = [
@@ -42,6 +44,8 @@ export class VerilogTreeDataProvider implements vscode.TreeDataProvider<ModuleNo
 
     this.rootNodes = [];
     this.moduleGraph.clear();
+    this.moduleFileMap.clear();
+    this.instanceMap.clear();
     this.parseVerilogFiles(this.workspaceRoot);
     this.buildTree();
     this._onDidChangeTreeData.fire(undefined);
@@ -73,17 +77,33 @@ export class VerilogTreeDataProvider implements vscode.TreeDataProvider<ModuleNo
     });
   }
 
+  private parsedFiles = new Set<string>();
+
   private parseVerilogFile(filePath: string) {
+    if (this.parsedFiles.has(filePath)) {
+    return; // 如果文件已经解析过，直接返回
+    }
+    this.parsedFiles.add(filePath);
+
     const content = fs.readFileSync(filePath, 'utf-8');
 
-    // 正则表达式匹配模块名
-    // const moduleRegex = /module\s+(\w+)\s*(?:#\s*\([^)]*\))?\s*\(/g;
-    // // 正则表达式匹配实例化名称（支持带参数和不带参数）
-    // const instanceRegex = /(\b\w+\b)\s*(?:#\s*\([\s\S]*?\))?\s*(\b\w+\b)\s*\([\s\S]*?\)/gs;
     // 正则表达式匹配模块名（支持无端口列表的 module 定义）
     const moduleRegex = /module\s+(\w+)\s*(?:#\s*\([^)]*\))?\s*(?:\([^)]*\))?\s*;/g;
     // 正则表达式匹配实例化名称（支持带参数和不带参数）
     const instanceRegex = /(\b\w+\b)\s*(?:#\s*\([\s\S]*?\))?\s*(\b\w+\b)\s*\([\s\S]*?\)\s*;/gs;
+
+    const testContent = `
+      async_fifo  #(
+          .WIDTH                                 (16                             ),
+          .DEPTH                                 (256                            ) 
+      ) UUT0_CCDL_TX (
+          ...
+      );
+      `;
+    let match;
+    while ((match = instanceRegex.exec(testContent)) !== null) {
+      console.log(`Instance Type: ${match[1]}, Instance Name: ${match[2]}`);
+    }
 
     const logContent: string[] = [];
 
@@ -99,6 +119,9 @@ export class VerilogTreeDataProvider implements vscode.TreeDataProvider<ModuleNo
       if (!this.moduleGraph.has(moduleName)) {
         this.moduleGraph.set(moduleName, new Set());
       }
+
+      // 保存模块名到文件路径的映射
+      this.moduleFileMap.set(moduleName, filePath);
     }
 
     // 提取实例化名称
@@ -116,6 +139,12 @@ export class VerilogTreeDataProvider implements vscode.TreeDataProvider<ModuleNo
           if (moduleName !== instanceType) {
             this.moduleGraph.get(moduleName)?.add(instanceType);
           }
+
+          // 保存实例化名称到模块名的映射
+          const instanceKey = `${moduleName}.${instanceName}`;
+          if (!this.instanceMap.has(instanceKey)) {
+            this.instanceMap.set(instanceKey, { instanceName, moduleName: instanceType });
+          }
         });
       }
     }
@@ -126,6 +155,7 @@ export class VerilogTreeDataProvider implements vscode.TreeDataProvider<ModuleNo
     }
   }
 
+  // 构建文件树
   private buildTree() {
     const allModules = new Set(this.moduleGraph.keys());
     const usedModules = new Set<string>();
@@ -140,19 +170,47 @@ export class VerilogTreeDataProvider implements vscode.TreeDataProvider<ModuleNo
 
     // 递归构建树结构
     rootModules.forEach(module => {
-      const rootNode = new ModuleNode(module, '');
-      this.buildSubTree(rootNode, module);
+      const rootNode = new ModuleNode(
+        `${module} (${path.basename(this.moduleFileMap.get(module) || '')})`,
+        this.moduleFileMap.get(module) || ''
+      );
+      this.buildSubTree(rootNode, module); // 构建子树
       this.rootNodes.push(rootNode);
     });
+
+    // 调试输出
+    console.log('Module Graph:', this.moduleGraph);
+    console.log('Instance Map:', this.instanceMap);
+    console.log('Root Nodes:', this.rootNodes);
   }
 
+  // 构建子节点
   private buildSubTree(parentNode: ModuleNode, module: string) {
     const dependencies = this.moduleGraph.get(module);
     if (dependencies) {
       dependencies.forEach(dependency => {
-        const childNode = new ModuleNode(dependency, '');
-        this.buildSubTree(childNode, dependency);
-        parentNode.children.push(childNode);
+        // 查找与 dependency 相关的所有实例化信息
+        const instanceInfos = Array.from(this.instanceMap.entries()).filter(
+          ([key, value]) => key.startsWith(`${module}.`) && value.moduleName === dependency
+        );
+
+        if (instanceInfos.length > 0) {
+          instanceInfos.forEach(([instanceKey, info]) => {
+            const filePath = this.moduleFileMap.get(dependency);
+            if (!filePath) {
+              console.error(`File path not found for module: ${dependency}`);
+              return;
+            }
+            const childNode = new ModuleNode(
+              `${info.instanceName} (${info.moduleName}) [${path.basename(filePath)}]`,
+              filePath
+            );
+            this.buildSubTree(childNode, dependency);
+            parentNode.children.push(childNode);
+          });
+        } else {
+          console.error(`Instance info not found for module: ${module}, dependency: ${dependency}`);
+        }
       });
     }
   }
@@ -178,23 +236,21 @@ export class VerilogTreeDataProvider implements vscode.TreeDataProvider<ModuleNo
 class ModuleNode extends vscode.TreeItem {
   children: ModuleNode[] = [];
 
-  constructor(label: string, filePath: string) {
-    super(label, vscode.TreeItemCollapsibleState.Collapsed);
-
-    // 设置节点图标
+  constructor(
+    public readonly label: string,
+    public readonly filePath: string,
+    public readonly collapsibleState: vscode.TreeItemCollapsibleState = vscode.TreeItemCollapsibleState.Collapsed
+  ) {
+    super(label, collapsibleState);
+    this.tooltip = filePath;
     this.iconPath = {
       light: path.join(__dirname, '..', 'src', 'verilog-icon.png'),
       dark: path.join(__dirname, '..', 'src', 'verilog-icon.png')
     };
-
-    // 设置节点资源 URI
-    this.resourceUri = vscode.Uri.file(filePath);
-
-    // 设置节点点击命令
     this.command = {
       command: 'vscode.open',
       title: 'Open File',
-      arguments: [vscode.Uri.file(filePath)],
+      arguments: [vscode.Uri.file(filePath)]
     };
   }
 }
