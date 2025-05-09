@@ -81,7 +81,7 @@ export class VerilogTreeDataProvider implements vscode.TreeDataProvider<ModuleNo
 
   private parseVerilogFile(filePath: string) {
     if (this.parsedFiles.has(filePath)) {
-    return; // 如果文件已经解析过，直接返回
+      return; // 如果文件已经解析过，直接返回
     }
     this.parsedFiles.add(filePath);
 
@@ -90,7 +90,6 @@ export class VerilogTreeDataProvider implements vscode.TreeDataProvider<ModuleNo
     // 正则表达式匹配模块名（支持无端口列表的 module 定义）
     const moduleRegex = /module\s+(\w+)\s*(?:#\s*\([^)]*\))?\s*(?:\([^)]*\))?\s*;/g;
     // 正则表达式匹配实例化名称（支持带参数和不带参数）
-    // const instanceRegex = /(\b\w+\b)\s*(?:#\s*\([\s\S]*?\))?\s*(\b\w+\b)\s*\([\s\S]*?\)\s*;/gs;
     const instanceRegex = /(\b\w+\b)\s*(?:#\s*\([\s\S]*?\))?\s*(\b\w+\b)\s*\([^;]*\)\s*;/gs;
 
     const logContent: string[] = [];
@@ -118,8 +117,6 @@ export class VerilogTreeDataProvider implements vscode.TreeDataProvider<ModuleNo
       const instanceType = instanceMatch[1]; // 实例类型
       const instanceName = instanceMatch[2]; // 实例名称
 
-      // console.log(`Matched Instance: ${instanceName} (Type: ${instanceType})`);
-      
       // 过滤掉 Verilog 关键字和模块名
       if (!this.isVerilogKeyword(instanceName) && !this.isVerilogKeyword(instanceType) && !moduleNames.includes(instanceName)) {
         logContent.push(this.formatLogEntry(`Instance: ${instanceName} (Type: ${instanceType})`));
@@ -135,10 +132,6 @@ export class VerilogTreeDataProvider implements vscode.TreeDataProvider<ModuleNo
           if (!this.instanceMap.has(instanceKey)) {
             this.instanceMap.set(instanceKey, { instanceName, moduleName: instanceType });
           }
-          
-          console.log(`Parsing file: ${filePath}`);
-          console.log(`Matched Module: ${moduleName}`);
-          console.log(`Matched Instance: ${instanceName} (Type: ${instanceType})`);
         });
       }
     }
@@ -165,10 +158,11 @@ export class VerilogTreeDataProvider implements vscode.TreeDataProvider<ModuleNo
     // 递归构建树结构
     rootModules.forEach(module => {
       const rootNode = new ModuleNode(
-        `${module} (${path.basename(this.moduleFileMap.get(module) || '')})`,
-        this.moduleFileMap.get(module) || ''
+        `${module}`,
+        this.moduleFileMap.get(module) || '',
+        this.moduleGraph.has(module) && this.moduleGraph.get(module)!.size > 0 // 确保有子节点时才设置为 true
       );
-      this.buildSubTree(rootNode, module); // 构建子树
+      this.buildSubTree(rootNode, module);
       this.rootNodes.push(rootNode);
     });
 
@@ -176,7 +170,6 @@ export class VerilogTreeDataProvider implements vscode.TreeDataProvider<ModuleNo
     console.log('Module Graph:', this.moduleGraph);
     console.log('Instance Map:', this.instanceMap);
     console.log('Root Nodes:', this.rootNodes);
-
   }
 
   // 构建子节点
@@ -184,7 +177,6 @@ export class VerilogTreeDataProvider implements vscode.TreeDataProvider<ModuleNo
     const dependencies = this.moduleGraph.get(module);
     if (dependencies) {
       dependencies.forEach(dependency => {
-        // 查找与 dependency 相关的所有实例化信息
         const instanceInfos = Array.from(this.instanceMap.entries()).filter(
           ([key, value]) => key.startsWith(`${module}.`) && value.moduleName === dependency
         );
@@ -197,8 +189,9 @@ export class VerilogTreeDataProvider implements vscode.TreeDataProvider<ModuleNo
               return;
             }
             const childNode = new ModuleNode(
-              `${info.instanceName} (${info.moduleName}) [${path.basename(filePath)}]`,
-              filePath
+              `${info.instanceName} (${info.moduleName})`,
+              filePath,
+              this.moduleGraph.has(dependency) && this.moduleGraph.get(dependency)!.size > 0 // 确保有子节点时才设置为 true
             );
             this.buildSubTree(childNode, dependency);
             parentNode.children.push(childNode);
@@ -234,10 +227,17 @@ class ModuleNode extends vscode.TreeItem {
   constructor(
     public readonly label: string,
     public readonly filePath: string,
-    public readonly collapsibleState: vscode.TreeItemCollapsibleState = vscode.TreeItemCollapsibleState.Collapsed
+    public readonly hasChildren: boolean = false // 新增参数，表示是否有子节点
   ) {
-    super(label, collapsibleState);
+    super(
+      label,
+      hasChildren
+        ? vscode.TreeItemCollapsibleState.Collapsed // 有子节点时显示“>”
+        : vscode.TreeItemCollapsibleState.None // 没有子节点时不显示“>”
+    );
+    console.log(`Creating node: ${label}, hasChildren: ${hasChildren}, collapsibleState: ${this.collapsibleState}`);
     this.tooltip = filePath;
+    this.description = path.basename(filePath); // 文件名以较浅的颜色显示
     this.iconPath = {
       light: path.join(__dirname, '..', 'src', 'verilog-icon.png'),
       dark: path.join(__dirname, '..', 'src', 'verilog-icon.png')
