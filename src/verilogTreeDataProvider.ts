@@ -10,6 +10,7 @@ export class VerilogTreeDataProvider implements vscode.TreeDataProvider<ModuleNo
   private workspaceRoot: string | undefined;
   private rootNodes: ModuleNode[] = [];
   private logFilePath: string | undefined;
+  private moduleGraph: Map<string, Set<string>> = new Map(); // 模块关系图
 
   // Verilog 关键字列表
   private verilogKeywords = [
@@ -40,7 +41,9 @@ export class VerilogTreeDataProvider implements vscode.TreeDataProvider<ModuleNo
     }
 
     this.rootNodes = [];
+    this.moduleGraph.clear();
     this.parseVerilogFiles(this.workspaceRoot);
+    this.buildTree();
     this._onDidChangeTreeData.fire(undefined);
   }
 
@@ -65,11 +68,6 @@ export class VerilogTreeDataProvider implements vscode.TreeDataProvider<ModuleNo
       if (stat.isDirectory()) {
         this.parseVerilogFiles(filePath);
       } else if (file.endsWith('.v')) {
-        const moduleName = path.basename(file, '.v');
-        const moduleNode = new ModuleNode(moduleName, filePath);
-        this.rootNodes.push(moduleNode);
-
-        // 解析 Verilog 文件并写入 log.txt
         this.parseVerilogFile(filePath);
       }
     });
@@ -77,13 +75,18 @@ export class VerilogTreeDataProvider implements vscode.TreeDataProvider<ModuleNo
 
   private parseVerilogFile(filePath: string) {
     const content = fs.readFileSync(filePath, 'utf-8');
-  
+
     // 正则表达式匹配模块名
-    const moduleRegex = /module\s+(\w+)\s*(?:#\s*\([^)]*\))?\s*\(/g;
+    // const moduleRegex = /module\s+(\w+)\s*(?:#\s*\([^)]*\))?\s*\(/g;
+    // // 正则表达式匹配实例化名称（支持带参数和不带参数）
+    // const instanceRegex = /(\b\w+\b)\s*(?:#\s*\([\s\S]*?\))?\s*(\b\w+\b)\s*\([\s\S]*?\)/gs;
+    // 正则表达式匹配模块名（支持无端口列表的 module 定义）
+    const moduleRegex = /module\s+(\w+)\s*(?:#\s*\([^)]*\))?\s*(?:\([^)]*\))?\s*;/g;
     // 正则表达式匹配实例化名称（支持带参数和不带参数）
-    const instanceRegex = /(\b\w+\b)\s*(?:#\s*\([\s\S]*?\))?\s*(\b\w+\b)\s*\([\s\S]*?\)/gs;
+    const instanceRegex = /(\b\w+\b)\s*(?:#\s*\([\s\S]*?\))?\s*(\b\w+\b)\s*\([\s\S]*?\)\s*;/gs;
+
     const logContent: string[] = [];
-  
+
     // 提取模块名
     let moduleMatch;
     const moduleNames: string[] = [];
@@ -91,26 +94,69 @@ export class VerilogTreeDataProvider implements vscode.TreeDataProvider<ModuleNo
       const moduleName = moduleMatch[1];
       moduleNames.push(moduleName); // 保存模块名
       logContent.push(this.formatLogEntry(`Module: ${moduleName}`));
+
+      // 初始化模块关系图
+      if (!this.moduleGraph.has(moduleName)) {
+        this.moduleGraph.set(moduleName, new Set());
+      }
     }
-  
+
     // 提取实例化名称
     let instanceMatch;
     while ((instanceMatch = instanceRegex.exec(content)) !== null) {
       const instanceType = instanceMatch[1]; // 实例类型
       const instanceName = instanceMatch[2]; // 实例名称
-  
+
       // 过滤掉 Verilog 关键字和模块名
       if (!this.isVerilogKeyword(instanceName) && !this.isVerilogKeyword(instanceType) && !moduleNames.includes(instanceName)) {
         logContent.push(this.formatLogEntry(`Instance: ${instanceName} (Type: ${instanceType})`));
+
+        // 更新模块关系图
+        moduleNames.forEach(moduleName => {
+          if (moduleName !== instanceType) {
+            this.moduleGraph.get(moduleName)?.add(instanceType);
+          }
+        });
       }
     }
-  
+
     // 将结果写入 log.txt 文件
     if (logContent.length > 0 && this.logFilePath) {
       fs.appendFileSync(this.logFilePath, `File: ${filePath}\n${logContent.join('\n')}\n\n`);
     }
   }
-  
+
+  private buildTree() {
+    const allModules = new Set(this.moduleGraph.keys());
+    const usedModules = new Set<string>();
+
+    // 遍历模块关系图，标记被实例化的模块
+    for (const [module, dependencies] of this.moduleGraph.entries()) {
+      dependencies.forEach(dependency => usedModules.add(dependency));
+    }
+
+    // 根节点是那些没有被实例化的模块
+    const rootModules = Array.from(allModules).filter(module => !usedModules.has(module));
+
+    // 递归构建树结构
+    rootModules.forEach(module => {
+      const rootNode = new ModuleNode(module, '');
+      this.buildSubTree(rootNode, module);
+      this.rootNodes.push(rootNode);
+    });
+  }
+
+  private buildSubTree(parentNode: ModuleNode, module: string) {
+    const dependencies = this.moduleGraph.get(module);
+    if (dependencies) {
+      dependencies.forEach(dependency => {
+        const childNode = new ModuleNode(dependency, '');
+        this.buildSubTree(childNode, dependency);
+        parentNode.children.push(childNode);
+      });
+    }
+  }
+
   private formatLogEntry(message: string): string {
     const now = moment().tz('Asia/Shanghai'); // 转换为北京时间
     const timestamp = now.format('YYYY-MM-DD HH:mm:ss'); // 格式化为北京时间
@@ -133,7 +179,7 @@ class ModuleNode extends vscode.TreeItem {
   children: ModuleNode[] = [];
 
   constructor(label: string, filePath: string) {
-    super(label, vscode.TreeItemCollapsibleState.None);
+    super(label, vscode.TreeItemCollapsibleState.Collapsed);
 
     // 设置节点图标
     this.iconPath = {
