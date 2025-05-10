@@ -5,6 +5,7 @@ import * as path from 'path';
 import { alignVerilogCode } from './aligner'; // 导入端口/常量/变量声明对齐功能
 import { registerAlignmentCommand } from './alignParentheses'; // 导入括号对齐功能
 import { VerilogTreeDataProvider } from './VerilogTreeDataProvider'; // 导入文件树功能
+import { registerSnippets } from './snippets'; // 导入代码片段功能
 
 export function activate(context: vscode.ExtensionContext) {
   console.log('ADOLPH ALIGN 插件已激活');
@@ -65,28 +66,6 @@ export function activate(context: vscode.ExtensionContext) {
 
   // 将命令添加到订阅中
   context.subscriptions.push(refreshCommand);
-}
-
-// 注册 snippets
-function registerSnippets(context: vscode.ExtensionContext, language: 'verilog' | 'vhdl') {
-  const snippetsDir = path.join(context.extensionPath, 'snippets');
-  const snippetsPath = path.join(snippetsDir, `${language}.json`);
-
-  if (fs.existsSync(snippetsPath)) {
-    const snippets = JSON.parse(fs.readFileSync(snippetsPath, 'utf-8'));
-
-    for (const snippetName in snippets) {
-      const snippet = snippets[snippetName];
-      vscode.languages.registerCompletionItemProvider(language, {
-        provideCompletionItems() {
-          const completionItem = new vscode.CompletionItem(snippet.prefix, vscode.CompletionItemKind.Snippet);
-          completionItem.insertText = new vscode.SnippetString(snippet.body.join('\n'));
-          completionItem.documentation = snippet.description;
-          return [completionItem];
-        }
-      });
-    }
-  }
 }
 
 export function deactivate() {}
