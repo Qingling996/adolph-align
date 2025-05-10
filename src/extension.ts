@@ -1,7 +1,4 @@
 import * as vscode from 'vscode';
-import * as fs from 'fs';
-import * as path from 'path';
-
 import { alignVerilogCode } from './aligner'; // 导入端口/常量/变量声明对齐功能
 import { registerAlignmentCommand } from './alignParentheses'; // 导入括号对齐功能
 import { VerilogTreeDataProvider } from './VerilogTreeDataProvider'; // 导入文件树功能
@@ -17,7 +14,7 @@ export function activate(context: vscode.ExtensionContext) {
     if (!editor) return;
 
     // 获取配置
-    const config = vscode.workspace.getConfiguration('simpleAlign');
+    const config = vscode.workspace.getConfiguration('adolphAlign');
 
     // 获取选中的文本
     const text = editor.document.getText(editor.selection);
