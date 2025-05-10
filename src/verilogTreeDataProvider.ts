@@ -184,16 +184,16 @@ export class VerilogTreeDataProvider implements vscode.TreeDataProvider<ModuleNo
         if (instanceInfos.length > 0) {
           instanceInfos.forEach(([instanceKey, info]) => {
             const filePath = this.moduleFileMap.get(dependency);
-            if (!filePath) {
-              console.error(`File path not found for module: ${dependency}`);
-              return;
-            }
+            const isMissing = !filePath; // 判断文件是否缺失
             const childNode = new ModuleNode(
               `${info.instanceName} (${info.moduleName})`,
-              filePath,
-              this.moduleGraph.has(dependency) && this.moduleGraph.get(dependency)!.size > 0 // 确保有子节点时才设置为 true
+              filePath || '', // 文件路径为空时表示缺失
+              this.moduleGraph.has(dependency) && this.moduleGraph.get(dependency)!.size > 0, // 是否有子节点
+              isMissing // 是否缺失文件
             );
-            this.buildSubTree(childNode, dependency);
+            if (!isMissing) {
+              this.buildSubTree(childNode, dependency);
+            }
             parentNode.children.push(childNode);
           });
         } else {
@@ -227,7 +227,8 @@ class ModuleNode extends vscode.TreeItem {
   constructor(
     public readonly label: string,
     public readonly filePath: string,
-    public readonly hasChildren: boolean = false // 新增参数，表示是否有子节点
+    public readonly hasChildren: boolean = false, // 是否有子节点
+    public readonly isMissing: boolean = false // 是否缺失文件
   ) {
     super(
       label,
@@ -236,16 +237,19 @@ class ModuleNode extends vscode.TreeItem {
         : vscode.TreeItemCollapsibleState.None // 没有子节点时不显示“>”
     );
     console.log(`Creating node: ${label}, hasChildren: ${hasChildren}, collapsibleState: ${this.collapsibleState}`);
-    this.tooltip = filePath;
-    this.description = path.basename(filePath); // 文件名以较浅的颜色显示
+    this.tooltip = filePath || 'File not found'; // 文件路径或提示文件缺失
+    this.description = filePath ? path.basename(filePath) : 'File not found'; // 文件名或提示文件缺失
     this.iconPath = {
-      light: path.join(__dirname, '..', 'src', 'verilog-icon.png'),
-      dark: path.join(__dirname, '..', 'src', 'verilog-icon.png')
+      light: path.join(__dirname, '..', 'src', isMissing ? 'verilog_tre_missing.png' : 'verilog-icon.png'),
+      dark: path.join(__dirname, '..', 'src', isMissing ? 'verilog_tre_missing.png' : 'verilog-icon.png')
     };
-    this.command = {
-      command: 'vscode.open',
-      title: 'Open File',
-      arguments: [vscode.Uri.file(filePath)]
-    };
+    if (filePath) {
+      this.command = {
+        command: 'vscode.open',
+        title: 'Open File',
+        arguments: [vscode.Uri.file(filePath)]
+      };
+    }
   }
 }
+
