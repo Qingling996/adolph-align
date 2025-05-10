@@ -63,6 +63,7 @@ export function activate(context: vscode.ExtensionContext) {
     verilogTreeDataProvider.refresh();
   });
 
+  // 将命令添加到订阅中
   context.subscriptions.push(refreshCommand);
 }
 

@@ -194,9 +194,10 @@
       ]
     },
     "menus": {
-      "view/title/context": [
+      "view/title": [
         {
           "command": "verilogFileTree.refresh",
+          "group": "navigation",
           "when": "view == verilogFileTree"
         }
       ]

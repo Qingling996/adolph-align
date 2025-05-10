@@ -13,6 +13,7 @@ export class VerilogTreeDataProvider implements vscode.TreeDataProvider<ModuleNo
   private moduleGraph: Map<string, Set<string>> = new Map(); // 模块关系图
   private moduleFileMap: Map<string, string> = new Map(); // 模块名到文件路径的映射
   private instanceMap: Map<string, { instanceName: string, moduleName: string }> = new Map(); // 实例化名称到模块名的映射
+  private parsedFiles = new Set<string>(); // 已解析的文件
 
   // Verilog 关键字列表
   private verilogKeywords = [
@@ -37,6 +38,8 @@ export class VerilogTreeDataProvider implements vscode.TreeDataProvider<ModuleNo
   }
 
   refresh(): void {
+    console.log('Refreshing file tree...');
+
     if (!this.workspaceRoot) {
       vscode.window.showErrorMessage('No workspace root found.');
       return;
@@ -46,9 +49,18 @@ export class VerilogTreeDataProvider implements vscode.TreeDataProvider<ModuleNo
     this.moduleGraph.clear();
     this.moduleFileMap.clear();
     this.instanceMap.clear();
+    this.parsedFiles.clear(); // 清空已解析的文件集合
+
+    console.log('Parsing Verilog files...');
     this.parseVerilogFiles(this.workspaceRoot);
+
+    console.log('Building tree...');
     this.buildTree();
+
+    console.log('Triggering refresh event...');
     this._onDidChangeTreeData.fire(undefined);
+
+    console.log('File tree refreshed.');
   }
 
   getTreeItem(element: ModuleNode): vscode.TreeItem {
@@ -76,8 +88,6 @@ export class VerilogTreeDataProvider implements vscode.TreeDataProvider<ModuleNo
       }
     });
   }
-
-  private parsedFiles = new Set<string>();
 
   private parseVerilogFile(filePath: string) {
     if (this.parsedFiles.has(filePath)) {
@@ -142,7 +152,6 @@ export class VerilogTreeDataProvider implements vscode.TreeDataProvider<ModuleNo
     }
   }
 
-  // 构建文件树
   private buildTree() {
     const allModules = new Set(this.moduleGraph.keys());
     const usedModules = new Set<string>();
@@ -172,7 +181,6 @@ export class VerilogTreeDataProvider implements vscode.TreeDataProvider<ModuleNo
     console.log('Root Nodes:', this.rootNodes);
   }
 
-  // 构建子节点
   private buildSubTree(parentNode: ModuleNode, module: string) {
     const dependencies = this.moduleGraph.get(module);
     if (dependencies) {
@@ -252,4 +260,3 @@ class ModuleNode extends vscode.TreeItem {
     }
   }
 }
-
