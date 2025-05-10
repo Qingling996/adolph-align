@@ -15,7 +15,8 @@ export function activate(context: vscode.ExtensionContext) {
 
     // 获取配置
     const config = vscode.workspace.getConfiguration('adolphAlign');
-
+    console.log('num1:', config.get('num1'));
+    console.log('num2:', config.get('num2'));
     // 获取选中的文本
     const text = editor.document.getText(editor.selection);
 
