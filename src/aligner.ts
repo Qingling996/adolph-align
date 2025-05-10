@@ -137,25 +137,29 @@ function alignRegWireIntegerDeclaration(line: string, config: WorkspaceConfigura
  */
 function alignParamDeclaration(line: string, config: WorkspaceConfiguration): string {
   const num9 = config.get<number>('adolphAlign.num9', 4); // 行首到 parameter/localparam 左侧的距离
-  const num10 = config.get<number>('adolphAlign.num10', 28); // 行首到参数信号左侧的距离
-  const num11 = config.get<number>('adolphAlign.num11', 40); // 行首到 ";" 的距离
+  const num10 = config.get<number>('adolphAlign.num10', 40); // 行首到参数信号左侧的距离
+  const num11 = config.get<number>('adolphAlign.num11', 80); // 行首到 ";" 的距离
 
   const regex = /(localparam|parameter)\s+([^\s]+)\s*=\s*([^;]+)([;,])?(.*)/;
   const match = line.match(regex);
   if (!match) return line;
 
-  const type = match[1];
-  const signal = match[2];
-  const value = match[3];
+  const type = match[1] || '';
+  const signal = match[2] || '';
+  const value = match[3] || '';
   const endSymbol = match[4] || ''; // 默认添加分号
   const comment = match[5] || ''; // 保留注释内容
 
   // 对齐逻辑
-  const alignedType = ' '.repeat(num9) + type;
-  const alignedSignal = ' '.repeat(num10) + signal;
-  const alignedValue = value.padEnd(num11 - num10 - signal.length);
+  const alignedType = ' '.repeat(num9) + type; // 绝对位置对齐
+  const alignedSignal = ' '.repeat(num10) + signal; // 绝对位置对齐
+  const alignedValue = value.padEnd(Math.max(0, num11 - num10 - signal.length)); // 确保非负数
 
-  return `${alignedType} ${alignedSignal} = ${alignedValue}${endSymbol}${comment}`;
+  // 确保 ";" 和注释之间无空格
+  const alignedEndSymbol = endSymbol.trim(); // 去除多余空格
+  const alignedComment = comment.trim(); // 去除多余空格
+
+  return `${alignedType} ${alignedSignal} = ${alignedValue}${alignedEndSymbol}${alignedComment}`;
 }
 
 /**
@@ -173,15 +177,15 @@ function alignAssignDeclaration(line: string, config: WorkspaceConfiguration): s
   const match = line.match(regex);
   if (!match) return line;
 
-  const signal = match[1];
-  const value = match[2];
+  const signal = match[1] || '';
+  const value = match[2] || '';
   const endSymbol = match[3] || ''; // 默认添加分号
   const comment = match[4] || ''; // 保留注释内容
 
   // 对齐逻辑
   const alignedAssign = ' '.repeat(num12) + 'assign';
   const alignedSignal = ' '.repeat(num13) + signal;
-  const alignedValue = value.padEnd(num14 - num13 - signal.length);
+  const alignedValue = value.padEnd(Math.max(0, num14 - num13 - signal.length)); // 确保非负数
 
   return `${alignedAssign} ${alignedSignal} = ${alignedValue}${endSymbol}${comment}`;
 }
@@ -194,24 +198,45 @@ function alignAssignDeclaration(line: string, config: WorkspaceConfiguration): s
  */
 function alignInstanceSignal(line: string, config: WorkspaceConfiguration): string {
   const num15 = config.get<number>('adolphAlign.num15', 8); // 实例化信号 " . " 左侧与行首的距离
-  const num16 = config.get<number>('adolphAlign.num16', 20); // 实例化信号 " . "到“（”的距离
-  const num17 = config.get<number>('adolphAlign.num17', 32); // 实例化信号“（”到“）”的距离
+  const num16 = config.get<number>('adolphAlign.num16', 40); // 实例化信号 " . "到“（”的距离
+  const num17 = config.get<number>('adolphAlign.num17', 80); // 实例化信号“（”到“）”的距离
 
   const regex = /\.([^\s]+)\s*\(([^)]+)\)([,;])?(.*)/;
   const match = line.match(regex);
   if (!match) return line;
 
-  const signal = match[1];
-  const connection = match[2];
+  const signal = match[1] || '';
+  const connection = match[2] || '';
   const endSymbol = match[3] || ''; // 默认添加分号
   const comment = match[4] || ''; // 保留注释内容
 
   // 对齐逻辑
-  const alignedSignal = ' '.repeat(num15) + `.${signal.padEnd(num16 - num15 - 1)}`;
-  const alignedConnection = `(${connection.padEnd(num17 - num16 - 1)})`;
-  const alignedEndSymbol = endSymbol.padEnd(num17 - num16 - 1);
+  const alignedSignal = ' '.repeat(num15) + `.${signal.padEnd(Math.max(0, num16 - num15 - 2))}`;
+  const alignedEndSymbol = endSymbol.trim(); // 去除多余空格
+  const alignedComment = comment.trim(); // 去除多余空格
 
-  return `${alignedSignal} ${alignedConnection}${alignedEndSymbol}${comment}`;
+  // 计算当前 `)` 的位置
+  const currentRightParenthesisPos = alignedSignal.length + connection.length + 2; // +2 是 `(` 和 `)` 的长度
+
+  // 无论操作前 `)` 的位置是大于还是小于 `num17 + 1`，都将 `)` 定位到 `num17 + 1`
+  const targetRightParenthesisPos = num17;
+
+  // 计算需要调整的长度
+  const adjustmentLength = targetRightParenthesisPos - currentRightParenthesisPos;
+
+  // 调整 `connection` 的长度，确保 `)` 定位到 `num17 + 1`
+  let adjustedConnection = `(${connection})`;
+  if (adjustmentLength > 0) {
+    // 如果 `)` 的位置小于 `num17 + 1`，填充空格
+    adjustedConnection = `(${connection.padEnd(connection.length + adjustmentLength)})`;
+  } else if (adjustmentLength < 0) {
+    // 如果 `)` 的位置大于 `num17 + 1`，截断 `connection`
+    const truncateLength = connection.length + adjustmentLength;
+    adjustedConnection = `(${connection.slice(0, Math.max(0, truncateLength))})`;
+  }
+
+  // 返回对齐后的字符串
+  return `${alignedSignal} ${adjustedConnection}${alignedEndSymbol}${alignedComment}`;
 }
 
 /**
@@ -224,12 +249,13 @@ function alignBitWidthDeclaration(line: string, config: WorkspaceConfiguration):
   const upbound = config.get<number>('adolphAlign.upbound', 2); // 位宽上限对齐长度
   const lowbound = config.get<number>('adolphAlign.lowbound', 2); // 位宽下限对齐长度
 
-  const regex = /(\[[^\]]+\])/;
+  // 只匹配形如 [数字:数字] 的位宽声明
+  const regex = /(\[\s*\d+\s*:\s*\d+\s*\])/;
   const match = line.match(regex);
-  if (!match) return line;
+  if (!match) return line; // 如果不是位宽声明，直接返回原行
 
   const width = match[1];
-  const [up, low] = width.slice(1, -1).split(':').map(part => part.trim());
+  const [up = '', low = ''] = width.slice(1, -1).split(':').map(part => part.trim());
 
   // 对齐位宽部分
   const alignedWidth = `[${up.padStart(upbound)}:${low.padStart(lowbound)}]`;
