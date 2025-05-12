@@ -136,30 +136,117 @@ function alignRegWireIntegerDeclaration(line: string, config: WorkspaceConfigura
  * @returns 对齐后的文本
  */
 function alignParamDeclaration(line: string, config: WorkspaceConfiguration): string {
-  const num9 = config.get<number>('adolphAlign.num9', 4); // 行首到 parameter/localparam 左侧的距离
+  const num9  = config.get<number>('adolphAlign.num9' , 4 ); // 行首到 parameter/localparam 左侧的距离
   const num10 = config.get<number>('adolphAlign.num10', 40); // 行首到参数信号左侧的距离
-  const num11 = config.get<number>('adolphAlign.num11', 80); // 行首到 ";" 的距离
+  const num11 = config.get<number>('adolphAlign.num11', 55); // 行首到 "=" 的距离
+  const num18 = config.get<number>('adolphAlign.num18', 80); // 行首到 ";" 或 "," 或 "//" 的距离
 
-  const regex = /(localparam|parameter)\s+([^\s]+)\s*=\s*([^;]+)([;,])?(.*)/;
+  // 改进后的正则表达式，支持注释前没有分号或逗号的情况
+  // const regex = /^\s*(localparam|parameter)\s+([^\s]+)\s*=\s*([^;,]+)\s*([;,])?\s*(.*)/;
+  const regex = /^\s*(localparam|parameter)\s+([^\s]+)\s*=\s*([^;,]+)\s*([;,])?\s*(?:\/\/.*|\/\*.*?\*\/)?/;
+  
+  // 第一次匹配
   const match = line.match(regex);
-  if (!match) return line;
+  if (!match) return line; // 如果不是 parameter/localparam 声明，直接返回原行
 
-  const type = match[1] || '';
-  const signal = match[2] || '';
-  const value = match[3] || '';
-  const endSymbol = match[4] || ''; // 默认添加分号
-  const comment = match[5] || ''; // 保留注释内容
+  const type         = match[1] || '';
+  const signal       = match[2] || '';
+  const value        = match[3] || '';
+  const endSymbol    = match[4] || ''; // 捕获分号或逗号
+  const comment      = match[5] || ''; // 保留注释内容
+
+  console.log(`原始参数  |signal   :\t${signal}`); // 打印日志
+  console.log(`原始值    |value    :\t${value}`); // 打印日志
+  console.log(`原始结束符|endSymbol:\t${endSymbol}`); // 打印日志
+  console.log(`原始注释  |comment  :\t${comment}`); // 打印日志
+
+  // 删除多余空格后的内容
+  const trimmedLine = `${type} ${signal} = ${value}${endSymbol}${comment}`.replace(/\s+/g, ' ');
+  console.log(`删除空格后的内容: ${trimmedLine}`); // 打印日志
+
+    // 第一次匹配
+  const match_new = trimmedLine.match(regex);
+
+  const type_new      = match_new[1] || '';
+  const signal_new    = match_new[2] || '';
+  const value_new     = match_new[3] || '';
+  const endSymbol_new = match_new[4] || ''; // 捕获分号或逗号
+  const comment_new   = match_new[5] || ''; // 保留注释内容
+
 
   // 对齐逻辑
-  const alignedType = ' '.repeat(num9) + type; // 绝对位置对齐
-  const alignedSignal = ' '.repeat(num10) + signal; // 绝对位置对齐
-  const alignedValue = value.padEnd(Math.max(0, num11 - num10 - signal.length)); // 确保非负数
+  const alignedType = ' '.repeat(num9) + type_new; // 第 9 列开始
 
-  // 确保 ";" 和注释之间无空格
-  const alignedEndSymbol = endSymbol.trim(); // 去除多余空格
-  const alignedComment = comment.trim(); // 去除多余空格
+  // 对齐信号
+  const signalSpaces = Math.max(0, num10 - (num9 + type_new.length)); // 确保非负数
+  const alignedSignal = signal_new ? ' '.repeat(signalSpaces) + signal_new : '';
 
-  return `${alignedType} ${alignedSignal} = ${alignedValue}${alignedEndSymbol}${alignedComment}`;
+  // 对齐 "="
+  const equalsSpaces = Math.max(0, num11 - (num10 + signal_new.length)); // 确保非负数
+  const alignedEquals = ' '.repeat(equalsSpaces) + '=';
+
+  // 计算 value_new 和 "=" 的总长度
+  const totalLength = alignedType.length + alignedSignal.length + alignedEquals.length + value_new.length + 1; // `=` 和 `value_new` 的总长度 + 1（空格）
+
+  // 查找 `,`、`;` 或注释的位置
+  const commaIndex = trimmedLine.indexOf(',');
+  const semicolonIndex = trimmedLine.indexOf(';');
+  const commentIndex = trimmedLine.indexOf('//');
+  const blockCommentIndex = trimmedLine.indexOf('/*');
+
+  // 确定停止删除的位置
+  let stopIndex = trimmedLine.length;
+  let recognizedSymbol = '';
+
+  if (commaIndex !== -1 && commaIndex < stopIndex) {
+    stopIndex = commaIndex;
+    recognizedSymbol = ',';
+  }
+  if (semicolonIndex !== -1 && semicolonIndex < stopIndex) {
+    stopIndex = semicolonIndex;
+    recognizedSymbol = ';';
+  }
+  if (commentIndex !== -1 && commentIndex < stopIndex) {
+    stopIndex = commentIndex;
+    recognizedSymbol = '//';
+  }
+  if (blockCommentIndex !== -1 && blockCommentIndex < stopIndex) {
+    stopIndex = blockCommentIndex;
+    recognizedSymbol = '/*';
+  }
+
+  // 获取剩余文本（删除多余空格）
+  const remainingText = (stopIndex !== trimmedLine.length) ? trimmedLine.slice(stopIndex).trim() : '';
+  console.log(`处理参数  |signal_new   :\t${signal_new}`); // 打印日志
+  console.log(`处理值    |value_new    :\t${value_new}`); // 打印日志
+  console.log(`处理结束符|endSymbol_new:\t${endSymbol_new}`); // 打印日志
+  console.log(`处理注释  |comment_new  :\t${comment_new}`); // 打印日志
+  console.log(`剩余文本  :\t\t\t\t${remainingText}`); // 打印日志
+
+  // 判断参数值的末尾位置
+  const valueEndPosition = totalLength;
+
+  // 如果参数值的末尾位置小于 num18，则填充空格
+  if (valueEndPosition <= num18) {
+    if (recognizedSymbol === ',' || recognizedSymbol === ';') {
+      // 填充空格到 num18
+      const spacesToAdd = num18 - valueEndPosition;
+      const result = `${alignedType}${alignedSignal}${alignedEquals} ${value_new}${' '.repeat(spacesToAdd)}${remainingText}`;
+      console.log(`填充空格后的内容: ${result}\n`); // 打印日志
+      return result;
+    } else if (recognizedSymbol === '//' || recognizedSymbol === '/*') {
+      // 填充空格到 num18 + 1
+      const spacesToAdd = (num18 + 1) - valueEndPosition;
+      const result = `${alignedType}${alignedSignal}${alignedEquals} ${value_new}${' '.repeat(spacesToAdd)}${remainingText}`;
+      console.log(`填充空格后的内容: ${result}\n`); // 打印日志
+      return result;
+    }
+  } else { // 如果参数值的末尾位置大于或等于 num18，则将 参数值的末尾到 （“；”或者“，”或者“//”或者“/*”）之间的空格全部删除
+    return trimmedLine;
+  }
+
+  // 其他情况直接返回原行
+  return trimmedLine;
 }
 
 /**
@@ -171,7 +258,7 @@ function alignParamDeclaration(line: string, config: WorkspaceConfiguration): st
 function alignAssignDeclaration(line: string, config: WorkspaceConfiguration): string {
   const num12 = config.get<number>('adolphAlign.num12', 4); // 行首到 assign 左侧的距离
   const num13 = config.get<number>('adolphAlign.num13', 12); // 行首到变量左侧的距离
-  const num14 = config.get<number>('adolphAlign.num14', 24); // 行首到“=”的距离
+  const num14 = config.get<number>('adolphAlign.num14', 30); // 行首到“=”的距离
 
   const regex = /assign\s+([^\s]+)\s*=\s*([^;]+)([;,])?(.*)/;
   const match = line.match(regex);
@@ -184,10 +271,22 @@ function alignAssignDeclaration(line: string, config: WorkspaceConfiguration): s
 
   // 对齐逻辑
   const alignedAssign = ' '.repeat(num12) + 'assign';
-  const alignedSignal = ' '.repeat(num13) + signal;
-  const alignedValue = value.padEnd(Math.max(0, num14 - num13 - signal.length)); // 确保非负数
 
-  return `${alignedAssign} ${alignedSignal} = ${alignedValue}${endSymbol}${comment}`;
+  // 计算 `signal` 到 `=` 的填充长度
+  const signalLength = signal.length;
+  const assignLength = num12 + 'assign'.length;
+  const signalStartPos = assignLength + 1 + (num13 - (assignLength + 1)); // `signal` 的起始位置
+  const equalsPos = signalStartPos + signalLength + 1; // `=` 的当前位置
+
+  // 计算需要填充的长度
+  const adjustmentLength = num14 - equalsPos;
+
+  // 如果 `adjustmentLength` 为负数，说明 `=` 的位置已经超过 `num14`，需要增加空格
+  // 但为了避免截断 `signal`，我们直接增加空格
+  const paddingAfterSignal = Math.max(0, adjustmentLength);
+
+  // 返回对齐后的字符串
+  return `${alignedAssign} ${' '.repeat(num13 - (num12 + 'assign'.length + 1))}${signal}${' '.repeat(paddingAfterSignal)} = ${value}${endSymbol}${comment}`;
 }
 
 /**
