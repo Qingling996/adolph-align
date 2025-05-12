@@ -142,8 +142,8 @@ function alignParamDeclaration(line: string, config: WorkspaceConfiguration): st
   const num18 = config.get<number>('adolphAlign.num18', 80); // 行首到 ";" 或 "," 或 "//" 的距离
 
   // 改进后的正则表达式，支持注释前没有分号或逗号的情况
-  // const regex = /^\s*(localparam|parameter)\s+([^\s]+)\s*=\s*([^;,]+)\s*([;,])?\s*(.*)/;
-  const regex = /^\s*(localparam|parameter)\s+([^\s]+)\s*=\s*([^;,]+)\s*([;,])?\s*(?:\/\/.*|\/\*.*?\*\/)?/;
+  const regex = /^\s*(localparam|parameter)\s+([^\s]+)\s*=\s*([^;,]+)\s*([;,])?\s*(.*)/;
+  // const regex = /^\s*(localparam|parameter)\s+([^\s]+)\s*=\s*([^;,]+)\s*([;,])?\s*(?:\/\/.*|\/\*.*?\*\/)?/;
   
   // 第一次匹配
   const match = line.match(regex);
