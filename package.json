@@ -14,7 +14,8 @@
   "activationEvents": [
     "workspaceContains:**/*.v",
     "onView:adolphAlignView",
-    "onLanguage:verilog"
+    "onLanguage:verilog",
+    "onCommand:extension.alignVerilogCode"
   ],
   "main": "./out/extension.js",
   "contributes": {
@@ -208,6 +209,7 @@
     "views": {
       "verilogFileTreeContainer": [
         {
+          "icon": "./container.png",
           "id": "verilogFileTree",
           "name": "Verilog File Tree"
         }

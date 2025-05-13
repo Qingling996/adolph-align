@@ -9,36 +9,31 @@ export function activate(context: vscode.ExtensionContext) {
 
   // 注册 Verilog 对齐命令
   const alignCommand = vscode.commands.registerCommand('adolph-align.align', () => {
-    console.log('执行 Verilog 对齐命令');
     const editor = vscode.window.activeTextEditor;
     if (!editor) return;
-
     // 获取配置
     const config = vscode.workspace.getConfiguration('adolphAlign');
-    console.log('num1:', config.get('num1'));
-    console.log('num2:', config.get('num2'));
     // 获取选中的文本
     const text = editor.document.getText(editor.selection);
-
     // 对齐代码
     const alignedText = alignVerilogCode(text, config);
-
     // 替换选中的文本
     editor.edit(editBuilder => {
       editBuilder.replace(editor.selection, alignedText);
     });
+    console.log('Verilog align 已执行');
   });
 
   context.subscriptions.push(alignCommand);
 
   // 注册括号对齐命令
-  console.log('注册括号对齐命令');
+  console.log('括号对齐 已注册');
   registerAlignmentCommand(context, 'left');
   registerAlignmentCommand(context, 'center');
   registerAlignmentCommand(context, 'right');
 
   // 注册 snippets
-  console.log('注册 snippets');
+  console.log('snippets 已注册');
   registerSnippets(context, 'verilog');
   registerSnippets(context, 'vhdl');
 
@@ -49,13 +44,11 @@ export function activate(context: vscode.ExtensionContext) {
     return;
   }
 
-  console.log('Workspace Root:', workspaceRoot);
-
   // 注册文件树视图
   const verilogTreeDataProvider = new VerilogTreeDataProvider(workspaceRoot);
   vscode.window.registerTreeDataProvider('verilogFileTree', verilogTreeDataProvider);
 
-  console.log('Verilog File Tree 视图已注册');
+  console.log('Verilog File Tree 已注册');
 
   // 注册刷新命令
   const refreshCommand = vscode.commands.registerCommand('verilogFileTree.refresh', () => {

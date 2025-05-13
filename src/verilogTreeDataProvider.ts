@@ -38,7 +38,6 @@ export class VerilogTreeDataProvider implements vscode.TreeDataProvider<ModuleNo
   }
 
   refresh(): void {
-    console.log('Refreshing file tree...');
 
     if (!this.workspaceRoot) {
       vscode.window.showErrorMessage('No workspace root found.');
@@ -50,17 +49,9 @@ export class VerilogTreeDataProvider implements vscode.TreeDataProvider<ModuleNo
     this.moduleFileMap.clear();
     this.instanceMap.clear();
     this.parsedFiles.clear(); // 清空已解析的文件集合
-
-    console.log('Parsing Verilog files...');
     this.parseVerilogFiles(this.workspaceRoot);
-
-    console.log('Building tree...');
     this.buildTree();
-
-    console.log('Triggering refresh event...');
     this._onDidChangeTreeData.fire(undefined);
-
-    console.log('File tree refreshed.');
   }
 
   getTreeItem(element: ModuleNode): vscode.TreeItem {
@@ -174,11 +165,6 @@ export class VerilogTreeDataProvider implements vscode.TreeDataProvider<ModuleNo
       this.buildSubTree(rootNode, module);
       this.rootNodes.push(rootNode);
     });
-
-    // 调试输出
-    console.log('Module Graph:', this.moduleGraph);
-    console.log('Instance Map:', this.instanceMap);
-    console.log('Root Nodes:', this.rootNodes);
   }
 
   private buildSubTree(parentNode: ModuleNode, module: string) {
@@ -244,7 +230,6 @@ class ModuleNode extends vscode.TreeItem {
         ? vscode.TreeItemCollapsibleState.Collapsed // 有子节点时显示“>”
         : vscode.TreeItemCollapsibleState.None // 没有子节点时不显示“>”
     );
-    console.log(`Creating node: ${label}, hasChildren: ${hasChildren}, collapsibleState: ${this.collapsibleState}`);
     this.tooltip = filePath || 'File not found'; // 文件路径或提示文件缺失
     this.description = filePath ? path.basename(filePath) : 'File not found'; // 文件名或提示文件缺失
     this.iconPath = {

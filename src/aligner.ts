@@ -29,7 +29,7 @@ export function alignVerilogCode(text: string, config: WorkspaceConfiguration): 
     }
 
     // 对齐逻辑
-    if (line.trim().startsWith('input') || line.trim().startsWith('output') || line.trim().startsWith('inout')) {
+    if        (line.trim().startsWith('input') || line.trim().startsWith('output') || line.trim().startsWith('inout')) {
       return alignPortDeclaration(line, config);
     } else if (line.trim().startsWith('reg') || line.trim().startsWith('wire') || line.trim().startsWith('integer')) {
       return alignRegWireIntegerDeclaration(line, config);
@@ -40,6 +40,8 @@ export function alignVerilogCode(text: string, config: WorkspaceConfiguration): 
     } else if (line.trim().startsWith('.')) {
       return alignInstanceSignal(line, config);
     } else if (line.includes('[') && line.includes(']')) {
+      console.log(`console: 调用函数打印 alignBitWidthDeclaration 函数，输入行: ${line}`); // 调试信息
+      console.log(`console: 调用条件满足，准备调用 alignBitWidthDeclaration 函数`); // 调试信息
       return alignBitWidthDeclaration(line, config);
     } else {
       return line; // 其他情况保持原样
@@ -142,9 +144,7 @@ function alignParamDeclaration(line: string, config: WorkspaceConfiguration): st
   const num18 = config.get<number>('adolphAlign.num18', 80); // 行首到 ";" 或 "," 或 "//" 的距离
 
   // 改进后的正则表达式，支持注释前没有分号或逗号的情况
-  // const regex = /^\s*(localparam|parameter)\s+([^\s]+)\s*=\s*([^;,]+)\s*([;,])?\s*(.*)/;
   const regex = /^\s*(localparam|parameter)\s+([^\s]+)\s*=\s*([^\s;,]+)\s*([;,])?\s*(.*)/;
-  // const regex = /^\s*(localparam|parameter)\s+([^\s]+)\s*=\s*([^\s;,]+)\s*([;,])?\s*(?:\/\/.*|\/\*.*?\*\/)?/;
   
   // 第一次匹配
   const match = line.match(regex);
@@ -171,9 +171,6 @@ function alignParamDeclaration(line: string, config: WorkspaceConfiguration): st
   const type_new      = match_new[1] || '';
   const signal_new    = match_new[2] || '';
   const value_new     = match_new[3] || '';
-  const endSymbol_new = match_new[4] || ''; // 捕获分号或逗号
-  const comment_new   = match_new[5] || ''; // 保留注释内容
-
 
   // 对齐逻辑
   const alignedType = ' '.repeat(num9) + type_new; // 第 9 列开始
@@ -218,11 +215,6 @@ function alignParamDeclaration(line: string, config: WorkspaceConfiguration): st
 
   // 获取剩余文本（删除多余空格）
   const remainingText = (stopIndex !== trimmedLine.length) ? trimmedLine.slice(stopIndex).trim() : '';
-  console.log(`处理参数  |signal_new   :\t${signal_new}`); // 打印日志
-  console.log(`处理值    |value_new    :\t${value_new}`); // 打印日志
-  console.log(`处理结束符|endSymbol_new:\t${endSymbol_new}`); // 打印日志
-  console.log(`处理注释  |comment_new  :\t${comment_new}`); // 打印日志
-  console.log(`剩余文本  :\t\t\t${remainingText}`); // 打印日志
 
   // 判断参数值的末尾位置
   const valueEndPosition = totalLength;
@@ -233,14 +225,11 @@ function alignParamDeclaration(line: string, config: WorkspaceConfiguration): st
       // 填充空格到 num18
       const spacesToAdd = num18 - valueEndPosition;
       const result = `${alignedType}${alignedSignal}${alignedEquals} ${value}${' '.repeat(spacesToAdd)}${remainingText}`;
-      console.log(`填充空格后的内容: ${result}\n`); // 打印日志
       return result;
     } else if (recognizedSymbol === '//' || recognizedSymbol === '/*') {
       // 填充空格到 num18 + 1
       const spacesToAdd = (num18 + 1) - valueEndPosition;
-      console.log(`spacesToAdd : ${num18 + 1} - ${valueEndPosition}`); // 打印日志
       const result = `${alignedType}${alignedSignal}${alignedEquals} ${value}${' '.repeat(spacesToAdd/*  + remainingText.length */)} ${remainingText}`;
-      console.log(`填充空格后的内容: ${result}\n`); // 打印日志
       return result;
     }
   } else { // 如果参数值的末尾位置大于或等于 num18，则将 参数值的末尾到 （“；”或者“，”或者“//”或者“/*”）之间的空格全部删除
@@ -346,20 +335,64 @@ function alignInstanceSignal(line: string, config: WorkspaceConfiguration): stri
  * @param config - 配置对象
  * @returns 对齐后的文本
  */
-function alignBitWidthDeclaration(line: string, config: WorkspaceConfiguration): string {
-  const upbound = config.get<number>('adolphAlign.upbound', 2); // 位宽上限对齐长度
-  const lowbound = config.get<number>('adolphAlign.lowbound', 2); // 位宽下限对齐长度
+// 定义 SimpleConfig 接口
+interface SimpleConfig {
+  get: (key: string, defaultValue: number) => number;
+}
 
-  // 只匹配形如 [数字:数字] 的位宽声明
-  const regex = /(\[\s*\d+\s*:\s*\d+\s*\])/;
+function alignBitWidthDeclaration(line: string, config: SimpleConfig): string {
+  console.log(`console:函数内打印 alignBitWidthDeclaration 函数，输入行: ${line}`); // 调试信息
+  const upbound = config.get('adolphAlign.upbound', 10); // 位宽上限对齐长度（默认值调整为 10）
+  const lowbound = config.get('adolphAlign.lowbound', 3); // 位宽下限对齐长度（默认值调整为 3）
+
+  // 改进后的正则表达式，支持匹配包含变量的位宽声明
+  const regex = /\[\s*([^\s:]+)\s*:\s*([^\s\]]+)\s*\]/;
   const match = line.match(regex);
-  if (!match) return line; // 如果不是位宽声明，直接返回原行
 
-  const width = match[1];
-  const [up = '', low = ''] = width.slice(1, -1).split(':').map(part => part.trim());
+  // 如果没有匹配到位宽声明，直接返回原行
+  if (!match) {
+    console.log(`未匹配到位宽声明: ${line}`); // 打印日志
+    return line;
+  }
+
+  const width = match[0]; // 完整的位宽声明（如 [DEPTH_W-1:00  ]）
+  const up = match[1].trim(); // 位宽上限（如 DEPTH_W-1）
+  const low = match[2].trim(); // 位宽下限（如 00）
+
+  // 打印匹配到的位宽声明
+  console.log(`匹配到位宽声明: ${width}`); // 打印日志
+  console.log(`位宽上限: ${up}`); // 打印日志
+  console.log(`位宽下限: ${low}`); // 打印日志
 
   // 对齐位宽部分
-  const alignedWidth = `[${up.padStart(upbound)}:${low.padStart(lowbound)}]`;
+  const alignedWidth = `[${up.padStart(upbound, ' ')}:${low.padStart(lowbound, ' ')}]`;
 
+  // 打印对齐后的位宽声明
+  console.log(`对齐后的位宽声明: ${alignedWidth}`); // 打印日志
+
+  // 替换原行中的位宽声明
   return line.replace(width, alignedWidth);
 }
+
+// 显式调用函数进行测试
+const testCases = [
+  "    wire        [DEPTH_W-1:00  ]          S_rd_addr                               ;//",
+  "    reg         [ 7:0]                     data_bus                               ;//",
+  "    wire      [3:0 ]                     value                        ;//",
+];
+
+const config = {
+  get: (key: string, defaultValue: number) => defaultValue,
+} as SimpleConfig;
+
+testCases.forEach((line, index) => {
+  console.log(`\n测试用例 ${index + 1}:`);
+  console.log(`console: 当前处理的行: ${line}`); // 调试信息
+  if (line.includes('[') && line.includes(']')) {
+    console.log(`console: 调用条件满足，准备调用 alignBitWidthDeclaration 函数`); // 调试信息
+    const result = alignBitWidthDeclaration(line, config);
+    console.log(`console: 函数调用完成，返回结果: ${result}`); // 调试信息
+  } else {
+    console.log(`console: 调用条件未满足，跳过 alignBitWidthDeclaration 函数`); // 调试信息
+  }
+});
