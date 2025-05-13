@@ -61,6 +61,10 @@
         "command": "adolph-align.align",
         "key": "alt+a",
         "when": "editorTextFocus"
+      },
+      {
+        "command": "adolph-align.generateInstance",
+        "title": "生成 Verilog 模块实例化代码"
       }
     ],
     "snippets": [
