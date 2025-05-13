@@ -29,23 +29,39 @@ export function alignVerilogCode(text: string, config: WorkspaceConfiguration): 
     }
 
     // 对齐逻辑
-    if        (line.trim().startsWith('input') || line.trim().startsWith('output') || line.trim().startsWith('inout')) {
+
+    if (line.includes('[') && line.includes(']')) {
+      // 处理变量声明 
+      let result = alignBitWidthDeclaration(line, config);
+      // 如果包含位宽声明，则进一步处理
+      if (line.trim().startsWith('input') || line.trim().startsWith('output') || line.trim().startsWith('inout')) {
+        result = alignPortDeclaration(result, config);
+      } else if (line.trim().startsWith('reg') || line.trim().startsWith('wire') || line.trim().startsWith('integer')) {
+        result = alignRegWireIntegerDeclaration(result, config);
+      }else if (line.trim().startsWith('assign')) {
+        result = alignAssignDeclaration(result, config);
+      }
+      return result;
+    } else if (line.trim().startsWith('input') || line.trim().startsWith('output') || line.trim().startsWith('inout')) {
+      // 处理参数声明
       return alignPortDeclaration(line, config);
     } else if (line.trim().startsWith('reg') || line.trim().startsWith('wire') || line.trim().startsWith('integer')) {
+      // 处理参数声明
       return alignRegWireIntegerDeclaration(line, config);
     } else if (line.trim().startsWith('localparam') || line.trim().startsWith('parameter')) {
+      // 处理参数声明
       return alignParamDeclaration(line, config);
     } else if (line.trim().startsWith('assign')) {
+      // 处理 assign 语句
       return alignAssignDeclaration(line, config);
     } else if (line.trim().startsWith('.')) {
+      // 处理实例信号
       return alignInstanceSignal(line, config);
-    } else if (line.includes('[') && line.includes(']')) {
-      console.log(`console: 调用函数打印 alignBitWidthDeclaration 函数，输入行: ${line}`); // 调试信息
-      console.log(`console: 调用条件满足，准备调用 alignBitWidthDeclaration 函数`); // 调试信息
-      return alignBitWidthDeclaration(line, config);
     } else {
-      return line; // 其他情况保持原样
+      // 其他情况保持原样
+      return line;
     }
+
   });
 
   return alignedLines.join('\n');
@@ -156,16 +172,10 @@ function alignParamDeclaration(line: string, config: WorkspaceConfiguration): st
   const endSymbol    = match[4] || ''; // 捕获分号或逗号
   const comment      = match[5] || ''; // 保留注释内容
 
-  console.log(`原始参数  |signal   :\t${signal}`); // 打印日志
-  console.log(`原始值    |value    :\t${value}`); // 打印日志
-  console.log(`原始结束符|endSymbol:\t${endSymbol}`); // 打印日志
-  console.log(`原始注释  |comment  :\t${comment}`); // 打印日志
-
   // 删除多余空格后的内容
   const trimmedLine = `${type} ${signal} = ${value} ${endSymbol} ${comment}`.replace(/\s+/g, ' ');
-  console.log(`删除空格后的内容: ${trimmedLine}`); // 打印日志
 
-    // 第一次匹配
+  // 第二次匹配
   const match_new = trimmedLine.match(regex);
 
   const type_new      = match_new[1] || '';
@@ -341,9 +351,8 @@ interface SimpleConfig {
 }
 
 function alignBitWidthDeclaration(line: string, config: SimpleConfig): string {
-  console.log(`console:函数内打印 alignBitWidthDeclaration 函数，输入行: ${line}`); // 调试信息
-  const upbound = config.get('adolphAlign.upbound', 10); // 位宽上限对齐长度（默认值调整为 10）
-  const lowbound = config.get('adolphAlign.lowbound', 3); // 位宽下限对齐长度（默认值调整为 3）
+  const upbound = config.get('adolphAlign.upbound', 2); // 
+  const lowbound = config.get('adolphAlign.lowbound', 2); // 
 
   // 改进后的正则表达式，支持匹配包含变量的位宽声明
   const regex = /\[\s*([^\s:]+)\s*:\s*([^\s\]]+)\s*\]/;
@@ -359,40 +368,8 @@ function alignBitWidthDeclaration(line: string, config: SimpleConfig): string {
   const up = match[1].trim(); // 位宽上限（如 DEPTH_W-1）
   const low = match[2].trim(); // 位宽下限（如 00）
 
-  // 打印匹配到的位宽声明
-  console.log(`匹配到位宽声明: ${width}`); // 打印日志
-  console.log(`位宽上限: ${up}`); // 打印日志
-  console.log(`位宽下限: ${low}`); // 打印日志
-
   // 对齐位宽部分
   const alignedWidth = `[${up.padStart(upbound, ' ')}:${low.padStart(lowbound, ' ')}]`;
-
-  // 打印对齐后的位宽声明
-  console.log(`对齐后的位宽声明: ${alignedWidth}`); // 打印日志
-
   // 替换原行中的位宽声明
   return line.replace(width, alignedWidth);
 }
-
-// 显式调用函数进行测试
-const testCases = [
-  "    wire        [DEPTH_W-1:00  ]          S_rd_addr                               ;//",
-  "    reg         [ 7:0]                     data_bus                               ;//",
-  "    wire      [3:0 ]                     value                        ;//",
-];
-
-const config = {
-  get: (key: string, defaultValue: number) => defaultValue,
-} as SimpleConfig;
-
-testCases.forEach((line, index) => {
-  console.log(`\n测试用例 ${index + 1}:`);
-  console.log(`console: 当前处理的行: ${line}`); // 调试信息
-  if (line.includes('[') && line.includes(']')) {
-    console.log(`console: 调用条件满足，准备调用 alignBitWidthDeclaration 函数`); // 调试信息
-    const result = alignBitWidthDeclaration(line, config);
-    console.log(`console: 函数调用完成，返回结果: ${result}`); // 调试信息
-  } else {
-    console.log(`console: 调用条件未满足，跳过 alignBitWidthDeclaration 函数`); // 调试信息
-  }
-});
