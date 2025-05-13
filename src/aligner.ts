@@ -142,8 +142,9 @@ function alignParamDeclaration(line: string, config: WorkspaceConfiguration): st
   const num18 = config.get<number>('adolphAlign.num18', 80); // 行首到 ";" 或 "," 或 "//" 的距离
 
   // 改进后的正则表达式，支持注释前没有分号或逗号的情况
-  const regex = /^\s*(localparam|parameter)\s+([^\s]+)\s*=\s*([^;,]+)\s*([;,])?\s*(.*)/;
-  // const regex = /^\s*(localparam|parameter)\s+([^\s]+)\s*=\s*([^;,]+)\s*([;,])?\s*(?:\/\/.*|\/\*.*?\*\/)?/;
+  // const regex = /^\s*(localparam|parameter)\s+([^\s]+)\s*=\s*([^;,]+)\s*([;,])?\s*(.*)/;
+  const regex = /^\s*(localparam|parameter)\s+([^\s]+)\s*=\s*([^\s;,]+)\s*([;,])?\s*(.*)/;
+  // const regex = /^\s*(localparam|parameter)\s+([^\s]+)\s*=\s*([^\s;,]+)\s*([;,])?\s*(?:\/\/.*|\/\*.*?\*\/)?/;
   
   // 第一次匹配
   const match = line.match(regex);
@@ -161,7 +162,7 @@ function alignParamDeclaration(line: string, config: WorkspaceConfiguration): st
   console.log(`原始注释  |comment  :\t${comment}`); // 打印日志
 
   // 删除多余空格后的内容
-  const trimmedLine = `${type} ${signal} = ${value}${endSymbol}${comment}`.replace(/\s+/g, ' ');
+  const trimmedLine = `${type} ${signal} = ${value} ${endSymbol} ${comment}`.replace(/\s+/g, ' ');
   console.log(`删除空格后的内容: ${trimmedLine}`); // 打印日志
 
     // 第一次匹配
@@ -221,7 +222,7 @@ function alignParamDeclaration(line: string, config: WorkspaceConfiguration): st
   console.log(`处理值    |value_new    :\t${value_new}`); // 打印日志
   console.log(`处理结束符|endSymbol_new:\t${endSymbol_new}`); // 打印日志
   console.log(`处理注释  |comment_new  :\t${comment_new}`); // 打印日志
-  console.log(`剩余文本  :\t\t\t\t${remainingText}`); // 打印日志
+  console.log(`剩余文本  :\t\t\t${remainingText}`); // 打印日志
 
   // 判断参数值的末尾位置
   const valueEndPosition = totalLength;
@@ -231,13 +232,14 @@ function alignParamDeclaration(line: string, config: WorkspaceConfiguration): st
     if (recognizedSymbol === ',' || recognizedSymbol === ';') {
       // 填充空格到 num18
       const spacesToAdd = num18 - valueEndPosition;
-      const result = `${alignedType}${alignedSignal}${alignedEquals} ${value_new}${' '.repeat(spacesToAdd)}${remainingText}`;
+      const result = `${alignedType}${alignedSignal}${alignedEquals} ${value}${' '.repeat(spacesToAdd)}${remainingText}`;
       console.log(`填充空格后的内容: ${result}\n`); // 打印日志
       return result;
     } else if (recognizedSymbol === '//' || recognizedSymbol === '/*') {
       // 填充空格到 num18 + 1
       const spacesToAdd = (num18 + 1) - valueEndPosition;
-      const result = `${alignedType}${alignedSignal}${alignedEquals} ${value_new}${' '.repeat(spacesToAdd)}${remainingText}`;
+      console.log(`spacesToAdd : ${num18 + 1} - ${valueEndPosition}`); // 打印日志
+      const result = `${alignedType}${alignedSignal}${alignedEquals} ${value}${' '.repeat(spacesToAdd/*  + remainingText.length */)} ${remainingText}`;
       console.log(`填充空格后的内容: ${result}\n`); // 打印日志
       return result;
     }
@@ -246,7 +248,7 @@ function alignParamDeclaration(line: string, config: WorkspaceConfiguration): st
   }
 
   // 其他情况直接返回原行
-  return trimmedLine;
+  return `${alignedType}${alignedSignal}${alignedEquals} ${value}${endSymbol}${comment}`;
 }
 
 /**
