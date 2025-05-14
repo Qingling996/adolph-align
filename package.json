@@ -80,97 +80,127 @@
         "adolphAlign.num1": {
           "type": "number",
           "default": 4,
-          "description": "input/output/inout 左侧与行首的距离"
+          "description": "Port: 行首到 input/output/inout 左侧的距离"
         },
         "adolphAlign.num2": {
           "type": "number",
-          "default": -4,
-          "description": "input/output/inout 右侧与位宽左侧之间的距离"
+          "default": 16,
+          "description": "Port: 行首到 位宽左侧“[”之间的距离"
         },
         "adolphAlign.num3": {
           "type": "number",
-          "default": 21,
-          "description": "input/output/inout 位宽右侧与变量之间的距离"
+          "default": 40,
+          "description": "Port: 行首到 信号左侧的距离"
         },
         "adolphAlign.num4": {
           "type": "number",
-          "default": 33,
-          "description": "input/output/inout 端口信号 + 信号后面到 ',' 的空格的长度"
+          "default": 80,
+          "description": "Port: 行首到  , ; 的长度"
         },
         "adolphAlign.num5": {
           "type": "number",
           "default": 4,
-          "description": "reg/wire 左侧与行首的距离"
+          "description": "变量: 行首到 reg/wire/integer 左侧的距离"
         },
         "adolphAlign.num6": {
           "type": "number",
-          "default": -1,
-          "description": "reg/wire 右侧与位宽左侧的距离"
+          "default": 16,
+          "description": "变量: 行首到 位宽左侧的距离"
         },
         "adolphAlign.num7": {
           "type": "number",
-          "default": 21,
-          "description": "位宽右侧与变量左侧之间的空格数-1"
+          "default": 40,
+          "description": "变量: 行首到 变量左侧的距离"
         },
         "adolphAlign.num8": {
           "type": "number",
-          "default": 30,
-          "description": "wire/reg 内部变量信号 + 信号后面到 ';' 的空格的长度"
+          "default": 80,
+          "description": "变量: 行首到 ; 的距离"
         },
         "adolphAlign.num9": {
           "type": "number",
           "default": 4,
-          "description": "parameter/localparam 左侧与行首的距离"
+          "description": "参数: 行首到 parameter/localparam 左侧的距离"
         },
         "adolphAlign.num10": {
           "type": "number",
-          "default": 32,
-          "description": "parameter/localparam 到 参数信号之前的空格的长度"
+          "default": 40,
+          "description": "参数: 行首到 参数信号左侧的距离"
         },
         "adolphAlign.num11": {
           "type": "number",
-          "default": 25,
-          "description": "参数信号 + 信号后面到 ';' 的空格的长度"
+          "default": 55,
+          "description": "参数: 行首到 = 的距离"
         },
         "adolphAlign.num12": {
           "type": "number",
-          "default": 4,
-          "description": "assign 左侧与行首的距离"
+          "default": 80,
+          "description": "参数: 行首到 行首到 ; 或 , 或 // 的距离"
         },
         "adolphAlign.num13": {
           "type": "number",
-          "default": 16,
-          "description": "assign 到 被赋值的信号之间的空格+1"
+          "default": 4,
+          "description": "assign: 行首到  assign 左侧的距离"
         },
         "adolphAlign.num14": {
           "type": "number",
-          "default": 30,
-          "description": "assign 的 被赋值的信号 + 后面的空格长度"
+          "default": 12,
+          "description": "assign: 行首到  变量左侧的距离"
         },
         "adolphAlign.num15": {
           "type": "number",
-          "default": 8,
-          "description": "实例化信号 ' . ' 左侧与行首的距离"
+          "default": 30,
+          "description": "assign: 行首到  “=”的距离"
         },
         "adolphAlign.num16": {
           "type": "number",
-          "default": 20,
-          "description": "实例化模块中最长信号名到 (连接信号) 之间的空格数"
+          "default": 8,
+          "description": "实例化:  ,  左侧与行首的距离"
         },
         "adolphAlign.num17": {
           "type": "number",
-          "default": 32,
-          "description": "实例化模块 (连接信号) 括号内的总宽度空格数"
+          "default": 40,
+          "description": "实例化: 信号 , 到“（”的距离"
+        },
+        "adolphAlign.num18": {
+          "type": "number",
+          "default": 80,
+          "description": "实例化: 信号“（”到“）”的距离"
+        },
+        "adolphAlign.num19": {
+          "type": "number",
+          "default": 4,
+          "description": "数组: 行首到 reg/wire 左侧的距离"
+        },
+        "adolphAlign.num20": {
+          "type": "number",
+          "default": 16,
+          "description": "数组: 行首到 第一个位宽左侧的距离"
+        },
+        "adolphAlign.num21": {
+          "type": "number",
+          "default": 40,
+          "description": "数组: 行首到 变量左侧的距离"
+        },
+        "adolphAlign.num22": {
+          "type": "number",
+          "default": 55,
+          "description": "数组: 行首到 第二个位宽左侧的距离"
+        },
+        "adolphAlign.num23": {
+          "type": "number",
+          "default": 80,
+          "description": "数组: 行首到 ; 的距离"
         },
         "adolphAlign.upbound": {
           "type": "number",
           "default": 2,
-          "description": "位宽 [] 内的上限空格数"
+          "description": "位宽 [:] 内的上限空格数"
         },
         "adolphAlign.lowbound": {
           "type": "number",
           "default": 2,
-          "description": "位宽 [] 内的下限空格数"
+          "description": "位宽 [:] 内的下限空格数"
         },
         "adolphAlign.alignPorts": {
           "type": "boolean",
@@ -210,7 +240,7 @@
     "views": {
       "verilogFileTreeContainer": [
         {
-          "icon": "./container.png",
+          "icon": "./icon.png",
           "id": "verilogFileTree",
           "name": "Verilog File Tree"
         }

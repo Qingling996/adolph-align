@@ -86,12 +86,24 @@ export class VerilogTreeDataProvider implements vscode.TreeDataProvider<ModuleNo
     }
     this.parsedFiles.add(filePath);
 
-    const content = fs.readFileSync(filePath, 'utf-8');
+    let content = fs.readFileSync(filePath, 'utf-8');
+
+    // 移除单行注释
+    content = content.replace(/\/\/.*$/gm, '');
+    // 移除多行注释
+    content = content.replace(/\/\*[\s\S]*?\*\//g, '');
 
     // 正则表达式匹配模块名（支持无端口列表的 module 定义）
     const moduleRegex = /module\s+(\w+)\s*(?:#\s*\([^)]*\))?\s*(?:\([^)]*\))?\s*;/g;
-    // 正则表达式匹配实例化名称（支持带参数和不带参数）
-    const instanceRegex = /(\b\w+\b)\s*(?:#\s*\([\s\S]*?\))?\s*(\b\w+\b)\s*\([^;]*\)\s*;/gs;
+    // 正则表达式匹配实例化名称（严格限制格式，排除任务/函数调用）
+    // const instanceRegex = /(\b\w+\b)\s*(?:#\s*\([\s\S]*?\))?\s*(\b\w+\b)\s*\([^;]*\)\s*;/gs;
+    const instanceRegex = /(\b\w+\b)\s*(?:#\s*\([^;]*?\))?\s*(\b\w+\b)\s*\([^;]*\)\s*;/gs;
+
+
+    // // 正则表达式匹配模块名（支持无端口列表的 module 定义）
+    // const moduleRegex = /module\s+(\w+)\s*(?:#\s*\([^)]*\))?\s*(?:\([^)]*\))?\s*;/g;
+    // // 正则表达式匹配实例化名称（支持带参数和不带参数）最初的匹配
+    // const instanceRegex = /(\b\w+\b)\s*(?:#\s*\([\s\S]*?\))?\s*(\b\w+\b)\s*\([^;]*\)\s*;/gs;
 
     const logContent: string[] = [];
 
@@ -115,12 +127,15 @@ export class VerilogTreeDataProvider implements vscode.TreeDataProvider<ModuleNo
     // 提取实例化名称
     let instanceMatch;
     while ((instanceMatch = instanceRegex.exec(content)) !== null) {
+      const instanceContent = instanceMatch[0]; // 实例名称
       const instanceType = instanceMatch[1]; // 实例类型
       const instanceName = instanceMatch[2]; // 实例名称
 
       // 过滤掉 Verilog 关键字和模块名
       if (!this.isVerilogKeyword(instanceName) && !this.isVerilogKeyword(instanceType) && !moduleNames.includes(instanceName)) {
         logContent.push(this.formatLogEntry(`Instance: ${instanceName} (Type: ${instanceType})`));
+        console.log(`Inst: ${instanceType}  ${instanceName}`); // 打印日志
+        console.log(`Text: ${instanceContent}\n`); // 打印日志
 
         // 更新模块关系图
         moduleNames.forEach(moduleName => {
