@@ -28,17 +28,23 @@ export function alignVerilogCode(text: string, config: WorkspaceConfiguration): 
       return line;
     }
 
-    // 对齐逻辑
-
+    // 其他对齐逻辑保持不变
     if (line.includes('[') && line.includes(']')) {
-      // 处理变量声明 
+      // 处理变量声明
       let result = alignBitWidthDeclaration(line, config);
+
       // 如果包含位宽声明，则进一步处理
       if (line.trim().startsWith('input') || line.trim().startsWith('output') || line.trim().startsWith('inout')) {
         result = alignPortDeclaration(result, config);
       } else if (line.trim().startsWith('reg') || line.trim().startsWith('wire') || line.trim().startsWith('integer')) {
-        result = alignRegWireIntegerDeclaration(result, config);
-      }else if (line.trim().startsWith('assign')) {
+        // 判断是否为二维数组 /(reg|wire)\s*(\[[^\]]+\])\s*([^;,\s]+)\s*(\[[^\]]+\])\s*([;])?\s*(.*)/
+        const isTwoDimArray = /(reg|wire)\s*\[[^\]]+\]\s*[^;,\s]+\s*\[[^\]]+\]/.test(line);
+        if (isTwoDimArray) {
+          result = alignTwoDimArrayDeclaration(result, config);
+        } else {
+          result = alignRegWireIntegerDeclaration(result, config);
+        }
+      } else if (line.trim().startsWith('assign')) {
         result = alignAssignDeclaration(result, config);
       }
       return result;
@@ -61,11 +67,17 @@ export function alignVerilogCode(text: string, config: WorkspaceConfiguration): 
       // 其他情况保持原样
       return line;
     }
-
   });
 
   return alignedLines.join('\n');
 }
+
+/**
+ * 对齐端口声明
+ * @param line - 单行文本
+ * @param config - 配置对象
+ * @returns 对齐后的文本
+ */
 
 function alignPortDeclaration(line: string, config: WorkspaceConfiguration): string {
   const num1 = config.get<number>('adolphAlign.num1', 4); // 行首到 input/output/inout 左侧的距离
@@ -112,6 +124,13 @@ function alignPortDeclaration(line: string, config: WorkspaceConfiguration): str
 
   return `${alignedType}${alignedRegKeyword}${alignedWidth}${alignedSignal}${alignedEndSymbol}`;
 }
+
+/**
+ * 对齐变量声明
+ * @param line - 单行文本
+ * @param config - 配置对象
+ * @returns 对齐后的文本
+ */
 
 function alignRegWireIntegerDeclaration(line: string, config: WorkspaceConfiguration): string {
   const num5 = config.get<number>('adolphAlign.num5', 4); // 行首到 reg/wire/integer 左侧的距离
@@ -360,7 +379,7 @@ function alignBitWidthDeclaration(line: string, config: SimpleConfig): string {
 
   // 如果没有匹配到位宽声明，直接返回原行
   if (!match) {
-    console.log(`未匹配到位宽声明: ${line}`); // 打印日志
+    // console.log(`未匹配到位宽声明: ${line}`); // 打印日志
     return line;
   }
 
@@ -372,4 +391,54 @@ function alignBitWidthDeclaration(line: string, config: SimpleConfig): string {
   const alignedWidth = `[${up.padStart(upbound, ' ')}:${low.padStart(lowbound, ' ')}]`;
   // 替换原行中的位宽声明
   return line.replace(width, alignedWidth);
+}
+
+/**
+ * 对齐二维数组声明
+ * @param line - 单行文本
+ * @param config - 配置对象
+ * @returns 对齐后的文本
+ */
+
+function alignTwoDimArrayDeclaration(line: string, config: WorkspaceConfiguration): string {
+  const num19 = config.get<number>('adolphAlign.num19', 4); // 行首到 reg/wire 左侧的距离
+  const num20 = config.get<number>('adolphAlign.num20', 16); // 行首到第一个位宽左侧的距离
+  const num21 = config.get<number>('adolphAlign.num21', 40); // 行首到变量左侧的距离
+  const num22 = config.get<number>('adolphAlign.num22', 55); // 行首到第二个位宽左侧的距离
+  const num23 = config.get<number>('adolphAlign.num23', 80); // 行首到 ";" 的距离
+
+  const regex = /(reg|wire)\s*(\[[^\]]+\])\s*([^;,\s]+)\s*(\[[^\]]+\])\s*([;])?\s*(.*)/;
+  const match = line.match(regex);
+  if (!match) return line;
+
+  const type      = match[1] || ''; // reg/wire
+  const width1    = match[2] || ''; // 第一个位宽
+  const signal    = match[3] || ''; // 变量
+  const width2    = match[4] || ''; // 第二个位宽
+  const endSymbol = match[5] || ''; // 分号
+  const comment   = match[6] || ''; // 注释
+
+  // 对齐逻辑
+  const alignedType = ' '.repeat(num19) + type; // 第 5 列开始
+
+  // 对齐第一个位宽
+  const width1Spaces = Math.max(0, num20 - (num19 + type.length)); // 确保非负数
+  const alignedWidth1 = width1 ? ' '.repeat(width1Spaces) + width1 : '';
+
+  // 对齐变量
+  const signalSpaces = Math.max(0, num21 - (num20 + width1.length)); // 确保非负数
+  const alignedSignal = signal ? ' '.repeat(signalSpaces) + signal : '';
+
+  // 对齐第二个位宽
+  const width2Spaces = Math.max(0, num22 - (num21 + signal.length)); // 确保非负数
+  const alignedWidth2 = width2 ? ' '.repeat(width2Spaces) + width2 : '';
+
+  // 对齐分号
+  const endSymbolSpaces = Math.max(0, num23 - (num22 + width2.length)); // 确保非负数
+  const alignedEndSymbol = endSymbol ? ' '.repeat(endSymbolSpaces) + endSymbol : '';
+
+  // 对齐注释
+  const alignedComment = comment ? ' ' + comment : '';
+
+  return `${alignedType}${alignedWidth1}${alignedSignal}${alignedWidth2}${alignedEndSymbol}${alignedComment}`;
 }

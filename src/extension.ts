@@ -60,30 +60,30 @@ export function activate(context: vscode.ExtensionContext) {
   // 将命令添加到订阅中
   context.subscriptions.push(refreshCommand);
 
-  // 注册生成 Verilog 模块实例化代码命令
-  const generateInstanceCommand = vscode.commands.registerCommand('adolph-align.generateInstance', () => {
-    const editor = vscode.window.activeTextEditor;
-    if (!editor) {
-      return; // 没有打开的编辑器
-    }
+  // // 注册生成 Verilog 模块实例化代码命令
+  // const generateInstanceCommand = vscode.commands.registerCommand('adolph-align.generateInstance', () => {
+  //   const editor = vscode.window.activeTextEditor;
+  //   if (!editor) {
+  //     return; // 没有打开的编辑器
+  //   }
 
-    const document = editor.document;
-    const moduleCode = document.getText(); // 获取当前文件内容
+  //   const document = editor.document;
+  //   const moduleCode = document.getText(); // 获取当前文件内容
 
-    // 生成实例化代码
-    try {
-      const instanceCode = generateInstanceCode(moduleCode);
-      editor.edit((editBuilder) => {
-        // 在文件末尾插入实例化代码
-        const position = new vscode.Position(document.lineCount, 0);
-        editBuilder.insert(position, `\n${instanceCode}\n`);
-      });
-    } catch (error) {
-      vscode.window.showErrorMessage(`生成实例化代码失败: ${error.message}`);
-    }
-  });
+  //   // 生成实例化代码
+  //   try {
+  //     const instanceCode = generateInstanceCode(moduleCode);
+  //     editor.edit((editBuilder) => {
+  //       // 在文件末尾插入实例化代码
+  //       const position = new vscode.Position(document.lineCount, 0);
+  //       editBuilder.insert(position, `\n${instanceCode}\n`);
+  //     });
+  //   } catch (error) {
+  //     vscode.window.showErrorMessage(`生成实例化代码失败: ${error.message}`);
+  //   }
+  // });
 
-  context.subscriptions.push(generateInstanceCommand);
+  // context.subscriptions.push(generateInstanceCommand);
 }
 
 export function deactivate() {}
