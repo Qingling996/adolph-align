@@ -3,7 +3,7 @@
   "displayName": "Adolph-Align",
   "description": "code align",
   "publisher": "AdolphWang",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "engines": {
     "vscode": "^1.50.0"
   },
@@ -278,8 +278,14 @@
     "test": "node ./out/test/runTest.js"
   },
   "devDependencies": {
+    "@types/mocha": "^10.0.10",
+    "@types/node": "^22.15.18",
     "@types/vscode": "^1.50.0",
-    "typescript": "^4.0.2",
+    "typescript": "^4.9.5",
     "vscode-test": "^1.4.0"
+  },
+  "dependencies": {
+    "@types/moment-timezone": "^0.5.13",
+    "moment-timezone": "^0.5.48"
   }
 }

@@ -248,8 +248,8 @@ class ModuleNode extends vscode.TreeItem {
     this.tooltip = filePath || 'File not found'; // 文件路径或提示文件缺失
     this.description = filePath ? path.basename(filePath) : 'File not found'; // 文件名或提示文件缺失
     this.iconPath = {
-      light: path.join(__dirname, '..', 'src', isMissing ? 'verilog_tre_missing.png' : 'verilog-icon.png'),
-      dark: path.join(__dirname, '..', 'src', isMissing ? 'verilog_tre_missing.png' : 'verilog-icon.png')
+      light: vscode.Uri.file(path.join(__dirname, '..', 'src', isMissing ? 'verilog_tre_missing.png' : 'verilog-icon.png')),
+      dark: vscode.Uri.file(path.join(__dirname, '..', 'src', isMissing ? 'verilog_tre_missing.png' : 'verilog-icon.png'))
     };
     if (filePath) {
       this.command = {
