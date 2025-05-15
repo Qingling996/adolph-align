@@ -48,3 +48,7 @@
     这个会报语法警告，但不影响使用
 ## 3、仓库
 链接: [adolph-align](https://github.com/Qingling996/adolph-align)
+
+## 4、感谢
+参考：[Verilog Hdl Format](https://github.com/1391074994/Verilog-Hdl-Format.git)
+参考：[Verilog-HDL/SystemVerilog/Bluespec SystemVerilog](https://github.com/mshr-h/vscode-verilog-hdl-support.git)
