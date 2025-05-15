@@ -6,7 +6,6 @@
 vsc-extension-quickstart.md
 
 # 忽略 TypeScript 源文件和配置文件
-src/**
 **/tsconfig.json
 **/eslint.config.mjs
 
@@ -22,3 +21,9 @@ src/**
 # 忽略其他不必要的文件
 **/.vscode-test.*
 node_modules/**
+
+!out/**
+!src/**
+!README.md
+!LICENSE
+
