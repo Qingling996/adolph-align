@@ -3,7 +3,7 @@
        "prefix": "zhushi",
        "body": [
           "/* ================================================================================================  */",
-          "/*    $0                                             $1      $0                                           */",
+          "/*    ${0}                                             ${1}      ${0}                                           */",
           "/* ================================================================================================  */",
           ""
        ],
@@ -21,7 +21,7 @@
     "reg-signal": { 
        "prefix": "reg-Signal",
        "body": [
-          "reg                     S_$1; //",
+          "reg                     S_${1}; //",
           "    "
        ],
     "description": "regx*1"
@@ -30,7 +30,7 @@
     "reg-x": {
        "prefix": "reg-x[x:00]  signal",
        "body": [
-          "reg      [$0:00]        S_$1; //",
+          "reg      [${0}:00]        S_${1}; //",
           "    "
        ],
     "description": "regx*1"
@@ -39,7 +39,7 @@
     "wire-signal": {
        "prefix": "wire-Signal",
        "body": [
-          "wire                    S_$1; //"
+          "wire                    S_${1}; //"
        ],
     "description": "wire*1"
     },
@@ -47,7 +47,7 @@
     "wire-x": {
        "prefix":"wire-x[x:00]  signal",
        "body": [
-          "wire     [$0:00]        S_$1; //",
+          "wire     [${0}:00]        S_${1}; //",
           ""
        ],
     "description": "wirex*1"
@@ -56,7 +56,7 @@
     "task_key_word": {
        "prefix": "task_key_word ",
        "body": [
-          "task  $1; // Task Name",
+          "task  ${1}; // Task Name",
           "    // input     ;",
           "    begin",
           "    ",
@@ -69,7 +69,7 @@
     "case_key_word": {
        "prefix": "case_key_word",
        "body": [
-          "case($1)",
+          "case(${1})",
           "    ",
           "    default:",
           "endcase"
@@ -80,7 +80,7 @@
     "input-s":{
        "prefix": "input-Signal  , //",
        "body": [
-          "input                    I_$1  , //",
+          "input                    I_${1}  , //",
           ""
        ],
     "description": "inputx*1"
@@ -89,7 +89,7 @@
     "input-x": {
        "prefix": "input-x[xx:00] Signal  , //",
        "body": [
-          "input          [$0:00]   I_$1  , //",
+          "input          [${0}:00]   I_${1}  , //",
           ""
        ],
     "description": "inputx*1"
@@ -98,7 +98,7 @@
     "output-wire":{
        "prefix": "output-s-wire                Signal  , //",
        "body": [
-          "output                   O_$1  , //",
+          "output                   O_${1}  , //",
           ""
        ],
     "description": "output*1"
@@ -107,7 +107,7 @@
     "output-x-wire":{
        "prefix":"output-x-wire[xx:00]    Signal  , //",
        "body": [
-          "output         [$0:00]   O_$1  , //",
+          "output         [${0}:00]   O_${1}  , //",
           ""
        ],
     "description": "outputx*1"
@@ -116,7 +116,7 @@
     "output-r": {
        "prefix": "output-s-reg                 Signal  , //",
        "body": [
-          "output reg                  O_$1  , //",
+          "output reg                  O_${1}  , //",
           ""
        ],
     "description": "outputr*1"
@@ -125,7 +125,7 @@
     "output-x-reg": {
        "prefix":"output-x-reg      [:00]    Signal  , //",
        "body": [
-          "output reg        [$0:00]   O_$1  , //",
+          "output reg        [${0}:00]   O_${1}  , //",
           ""
        ],
     "description": "outr*1"
@@ -134,8 +134,8 @@
     "repeat": {
        "prefix": "repeat_key_word",
        "body": [
-          "repeat($1)begin",
-          "    $0",
+          "repeat(${1})begin",
+          "    ${0}",
           "end"
        ],
     "description": "repeat*1"
@@ -144,7 +144,7 @@
     "localparam": {
        "prefix": "localparam-c",
        "body": [
-          "localparam C_$1 = $0;"
+          "localparam C_${1} = ${0};"
        ],
     "description": "localparam*1"
     },
@@ -152,7 +152,7 @@
     "parameter": {
        "prefix": "parameter-c",
        "body": [
-          "parameter C_$1 = $0;"
+          "parameter C_${1} = ${0};"
        ],
     "description": "parameter*1"
     },
@@ -160,7 +160,7 @@
     "defparam_key_word": {
        "prefix": "defparam_key_word ",
        "body": [
-          "defparam    C_$1 = $0;",
+          "defparam    C_${1} = ${0};",
           ""
        ],
     "description": "defparam*1"
@@ -169,8 +169,8 @@
     "if_a_key_word": {
        "prefix": "if_a_key_word",
        "body": [
-          "if($1)begin",
-          "    $0",
+          "if(${1})begin",
+          "    ${0}",
           "end"
        ],
     "description": "if*1"
@@ -179,8 +179,8 @@
     "else_if_table": {
        "prefix": "else_if_table",
        "body": [
-          "else if($1)begin",
-          "    $0",
+          "else if(${1})begin",
+          "    ${0}",
           "end"
        ],
     "description": "elf*1"
@@ -190,7 +190,7 @@
        "prefix": "else_a_key_word",
        "body": [
           "else begin",
-          "    $1",
+          "    ${1}",
           "end"
        ],
     "description": "if*1"
@@ -200,7 +200,7 @@
        "prefix": "begin_key_word",
        "body": [
        "begin ",
-       "    $1",
+       "    ${1}",
        "end "
        ],
        "description": "begin*1"
@@ -208,28 +208,28 @@
     "jsq": {
        "prefix": "jsq",
        "body": [
-          "reg          [$1:00]    S_$2     ; //Counter    ",
-          "wire                    S_add_$2 ; //Counter Enable",
-          "wire                    S_end_$2 ; //Counter reset ",
+          "reg          [${1}:00]    S_${2}     ; //Counter    ",
+          "wire                    S_add_${2} ; //Counter Enable",
+          "wire                    S_end_${2} ; //Counter reset ",
           "    ",
           "always @(posedge I_sys_clk or negedge I_rst_n)begin",
           "    if(I_rst_n == 1'b0)begin  ",
-          "        S_$2 <= 'd0; ",
+          "        S_${2} <= 'd0; ",
           "    end  ",
-          "    else if(S_add_$2 == 1'b1)begin  ",
-          "        if(S_end_$2 == 1'b1)begin  ",
-          "            S_$2 <= 'd0; ",
+          "    else if(S_add_${2} == 1'b1)begin  ",
+          "        if(S_end_${2} == 1'b1)begin  ",
+          "            S_${2} <= 'd0; ",
           "        end  ",
           "        else begin  ",
-          "            S_$2 <= S_$2 + 1'b1; ",
+          "            S_${2} <= S_${2} + 1'b1; ",
           "        end  ",
           "    end  ",
           "    else begin  ",
-          "        S_$2 <= 'd0;  ", 
+          "        S_${2} <= 'd0;  ", 
           "    end  ",
           "end ",
-          "assign S_add_$2 = $0; ",
-          "assign S_end_$2 = (S_add_$2 == 1'b1) && (S_$2 >= ); "
+          "assign S_add_${2} = ${0}; ",
+          "assign S_end_${2} = (S_add_${2} == 1'b1) && (S_${2} >= ); "
        ],
     "description": "jsq*1"
     },
@@ -237,50 +237,50 @@
     "jsq_2level":{
        "prefix": "jsq_2level",
        "body":[
-          "reg          [$1:00]    S_$2    ; //Counter  ",
-          "wire                    S_add_$2; //Counter Enable",
-          "wire                    S_end_$2; //Counter reset",
+          "reg          [${1}:00]    S_${2}    ; //Counter  ",
+          "wire                    S_add_${2}; //Counter Enable",
+          "wire                    S_end_${2}; //Counter reset",
           "",
-          "reg          [$0:00]    S_$3    ; //Counter ",
-          "wire                    S_add_$3; //Counter Enable",
-          "wire                    S_end_$3; //Counter reset",
+          "reg          [${0}:00]    S_${3}    ; //Counter ",
+          "wire                    S_add_${3}; //Counter Enable",
+          "wire                    S_end_${3}; //Counter reset",
           "",
           "always @(posedge I_sys_clk or negedge I_rst_n)begin  ",
           "    if(I_rst_n == 1'b0)begin  ",
-          "        S_$2 <= 'd0; ",
+          "        S_${2} <= 'd0; ",
           "    end  ",
-          "    else if(S_add_$2 == 1'b1)begin  ",
-          "        if(S_end_$2 == 1'b1)begin  ",
-          "            S_$2 <= 'd0; ",
+          "    else if(S_add_${2} == 1'b1)begin  ",
+          "        if(S_end_${2} == 1'b1)begin  ",
+          "            S_${2} <= 'd0; ",
           "        end  ",
           "        else begin  ",
-          "            S_$2 <= S_$2 + 1'b1; ",
+          "            S_${2} <= S_${2} + 1'b1; ",
           "        end  ",
           "    end  ",
           "    else begin  ",
-          "        S_$2 <= 'd0;",
+          "        S_${2} <= 'd0;",
           "    end  ",
           "end ",
-          "assign S_add_$2 = ; ",
-          "assign S_end_$2 = (S_add_$2 == 1'b1) && (S_$2 >= ); ",
+          "assign S_add_${2} = ; ",
+          "assign S_end_${2} = (S_add_${2} == 1'b1) && (S_${2} >= ); ",
           "always @(posedge I_sys_clk or negedge I_rst_n)begin  ",
           "    if(I_rst_n == 1'b0)begin  ",
-          "        S_$3 <= 'd0; ",
+          "        S_${3} <= 'd0; ",
           "    end  ",
-          "    else if(S_add_$3 == 1'b1)begin  ",
-          "        if(S_end_$3 == 1'b1)begin  ",
-          "            S_$3 <= 'd0; ",
+          "    else if(S_add_${3} == 1'b1)begin  ",
+          "        if(S_end_${3} == 1'b1)begin  ",
+          "            S_${3} <= 'd0; ",
           "        end  ",
           "        else begin  ",
-          "            S_$3 <= S_$3 + 1'b1; ",
+          "            S_${3} <= S_${3} + 1'b1; ",
           "        end  ",
           "    end  ",
           "    else begin  ",
-          "        S_$3 <= S_$3;  ",
+          "        S_${3} <= S_${3};  ",
           "    end  ",
           "end ",
-          "assign S_add_$3 = ; ",
-          "assign S_end_$3 = (S_add_$3 == 1'b1) && (S_$3 >= ); "
+          "assign S_add_${3} = ; ",
+          "assign S_end_${3} = (S_add_${3} == 1'b1) && (S_${3} >= ); "
        ],
     "description": "jsq*2"
     },
@@ -288,72 +288,72 @@
     "jsq_3level":{
        "prefix": "jsq_3level",
        "body": [
-          "reg          [$1:00]    S_$2    ; //Counter  ",
-          "wire                    S_add_$2; //Counter Enable",
-          "wire                    S_end_$2; //Counter ",
+          "reg          [${1}:00]    S_${2}    ; //Counter  ",
+          "wire                    S_add_${2}; //Counter Enable",
+          "wire                    S_end_${2}; //Counter ",
           "",
-          "reg          [$5:00]    S_$3    ; //Counter ",
-          "wire                    S_add_$3; //Counter Enable",
-          "wire                    S_end_$3; //Counter ",
+          "reg          [${5}:00]    S_${3}    ; //Counter ",
+          "wire                    S_add_${3}; //Counter Enable",
+          "wire                    S_end_${3}; //Counter ",
           "",
-          "reg          [$0:00]    S_$4    ; //Counter ",
-          "wire                    S_add_$4; //Counter Enable",
-          "wire                    S_end_$4; //Counter ",
+          "reg          [${0}:00]    S_${4}    ; //Counter ",
+          "wire                    S_add_${4}; //Counter Enable",
+          "wire                    S_end_${4}; //Counter ",
           "",
           "always @(posedge I_sys_clk or negedge I_rst_n)begin  ",
           "    if(I_rst_n == 1'b0)begin  ",
-          "        S_$2 <= 'd0; ",
+          "        S_${2} <= 'd0; ",
           "    end  ",
-          "    else if(S_add_$2 == 1'b1)begin  ",
-          "        if(S_end_$2 == 1'b1)begin  ",
-          "            S_$2 <= 'd0; ",
+          "    else if(S_add_${2} == 1'b1)begin  ",
+          "        if(S_end_${2} == 1'b1)begin  ",
+          "            S_${2} <= 'd0; ",
           "        end  ",
           "        else begin  ",
-          "            S_$2 <= S_$2 + 1'b1; ",
+          "            S_${2} <= S_${2} + 1'b1; ",
           "        end  ",
           "    end  ",
           "    else begin  ",
-          "        S_$2 <= 'd0;",
+          "        S_${2} <= 'd0;",
           "    end  ",
           "end ",
-          "assign S_add_$2 = ; ",
-          "assign S_end_$2 = (S_add_$2 == 1'b1) && (S_$2 >= ); ",
+          "assign S_add_${2} = ; ",
+          "assign S_end_${2} = (S_add_${2} == 1'b1) && (S_${2} >= ); ",
           "always @(posedge I_sys_clk or negedge I_rst_n)begin  ",
           "    if(I_rst_n == 1'b0)begin  ",
-          "        S_$3 <= 'd0; ",
+          "        S_${3} <= 'd0; ",
           "    end  ",
-          "    else if(S_add_$3 == 1'b1)begin  ",
-          "        if(S_end_$3 == 1'b1)begin  ",
-          "            S_$3 <= 'd0; ",
+          "    else if(S_add_${3} == 1'b1)begin  ",
+          "        if(S_end_${3} == 1'b1)begin  ",
+          "            S_${3} <= 'd0; ",
           "        end  ",
           "        else begin  ",
-          "            S_$3 <= S_$3 + 1'b1; ",
+          "            S_${3} <= S_${3} + 1'b1; ",
           "        end  ",
           "    end  ",
           "    else begin  ",
-          "        S_$3 <= S_$3;  ",
+          "        S_${3} <= S_${3};  ",
           "    end  ",
           "end ",
-          "assign S_add_$3 = S_end_$2; ",
-          "assign S_end_$3 = (S_add_$3 == 1'b1) && (S_$3 >= ); ",
+          "assign S_add_${3} = S_end_${2}; ",
+          "assign S_end_${3} = (S_add_${3} == 1'b1) && (S_${3} >= ); ",
           "always @(posedge I_sys_clk or negedge I_rst_n)begin  ",
           "    if(I_rst_n == 1'b0)begin  ",
-          "        S_$4 <= 'd0; ",
+          "        S_${4} <= 'd0; ",
           "    end  ",
-          "    else if(S_add_$4 == 1'b1)begin  ",
-          "        if(S_end_$4 == 1'b1)begin  ",
-          "            S_$4 <= 'd0; ",
+          "    else if(S_add_${4} == 1'b1)begin  ",
+          "        if(S_end_${4} == 1'b1)begin  ",
+          "            S_${4} <= 'd0; ",
           "        end  ",
           "        else begin  ",
-          "            S_$4 <= S_$4 + 1'b1; ",
+          "            S_${4} <= S_${4} + 1'b1; ",
           "        end  ",
           "    end  ",
           "    else begin  ",
-          "        S_$4 <= S_$4;  ",
+          "        S_${4} <= S_${4};  ",
           "    end  ",
           "end ",
-          "assign S_add_$4 = S_end_$3; ",
-          "assign S_end_$4 = (S_add_$4 == 1'b1) && (S_$4 >= ); "
+          "assign S_add_${4} = S_end_${3}; ",
+          "assign S_end_${4} = (S_add_${4} == 1'b1) && (S_${4} >= ); "
        ],
     "description": "jsq*3"
     },
@@ -362,13 +362,13 @@
        "body": [
           "always @(posedge I_sys_clk or negedge I_rst_n)begin " ,
           "    if(I_rst_n == 1'b0)begin",
-          "        $1",
+          "        ${1}",
           "    end  ",
-          "    else if($2)begin",
-          "        $3",
+          "    else if(${2})begin",
+          "        ${3}",
           "    end  ",
           "    else begin",
-          "        $0",
+          "        ${0}",
           "    end",
           "end ",
           ""
@@ -381,10 +381,10 @@
        "body": [
           "always @(posedge I_sys_clk or negedge I_rst_n)begin " ,
           "    if(I_rst_n == 1'b0)begin",
-          "        $1",
+          "        ${1}",
           "    end  ",
           "    else begin",
-          "        $0",
+          "        ${0}",
           "    end",
           "end ",
           ""
@@ -396,7 +396,7 @@
        "prefix": "Zuhe_logic",
        "body": [
           "always @(*)begin ",
-          "    $1",
+          "    ${1}",
           "end " ,
           ""
        ],
@@ -426,7 +426,7 @@
           "    /* --------------------- Input Signals --------------------- */",
           "    input                       I_sys_clk      , //System Clock xx MHz",
           "    input                       I_rst_n        , //Reset Signal, Low Valid",
-          "    input                       I_$1  , //",
+          "    input                       I_${1}  , //",
           "    /* --------------------- Output Signals -------------------- */",
           "    ",
           ");",

@@ -40,6 +40,10 @@
       {
         "command": "verilogFileTree.refresh",
         "title": "Refresh Verilog File Tree"
+      },
+      {
+        "command": "verilogFileTree.showInFolder",
+        "title": "在文件夹中显示"
       }
     ],
     "keybindings": [
@@ -240,7 +244,7 @@
     "views": {
       "verilogFileTreeContainer": [
         {
-          "icon": "./icon.png",
+          "icon": "./container.png",
           "id": "verilogFileTree",
           "name": "Verilog File Tree"
         }
@@ -251,6 +255,12 @@
         {
           "command": "verilogFileTree.refresh",
           "group": "navigation",
+          "when": "view == verilogFileTree"
+        }
+      ],
+      "view/item/context": [
+        {
+          "command": "verilogFileTree.showInFolder",
           "when": "view == verilogFileTree"
         }
       ]

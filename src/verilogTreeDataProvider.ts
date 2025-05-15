@@ -127,15 +127,15 @@ export class VerilogTreeDataProvider implements vscode.TreeDataProvider<ModuleNo
     // 提取实例化名称
     let instanceMatch;
     while ((instanceMatch = instanceRegex.exec(content)) !== null) {
-      const instanceContent = instanceMatch[0]; // 实例名称
+      // const instanceContent = instanceMatch[0]; // 实例内容
       const instanceType = instanceMatch[1]; // 实例类型
       const instanceName = instanceMatch[2]; // 实例名称
 
       // 过滤掉 Verilog 关键字和模块名
       if (!this.isVerilogKeyword(instanceName) && !this.isVerilogKeyword(instanceType) && !moduleNames.includes(instanceName)) {
         logContent.push(this.formatLogEntry(`Instance: ${instanceName} (Type: ${instanceType})`));
-        console.log(`Inst: ${instanceType}  ${instanceName}`); // 打印日志
-        console.log(`Text: ${instanceContent}\n`); // 打印日志
+        // console.log(`Inst: ${instanceType}  ${instanceName}`); // 打印日志
+        // console.log(`Text: ${instanceContent}\n`); // 打印日志
 
         // 更新模块关系图
         moduleNames.forEach(moduleName => {

@@ -1,8 +1,9 @@
-// src/extension.ts
 import * as vscode from 'vscode';
+import * as path from 'path';
 import { alignVerilogCode } from './aligner'; // 导入端口/常量/变量声明对齐功能
 import { registerAlignmentCommand } from './alignParentheses'; // 导入括号对齐功能
 import { VerilogTreeDataProvider } from './VerilogTreeDataProvider'; // 导入文件树功能
+import * as child_process from 'child_process';
 import { registerSnippets } from './snippets'; // 导入代码片段功能
 import { VerilogDefinitionProvider } from './VerilogDefinitionProvider'; // 导入文件跳转功能
 
@@ -57,8 +58,27 @@ export function activate(context: vscode.ExtensionContext) {
     verilogTreeDataProvider.refresh();
   });
 
+  // 注册 "在文件夹中显示" 命令
+  const showInFolderCommand = vscode.commands.registerCommand('verilogFileTree.showInFolder', (node) => {
+    if (node && node.filePath) {
+      const folderPath = path.dirname(node.filePath);
+      if (process.platform === 'win32') {
+        // Windows 系统
+        child_process.exec(`explorer.exe /select, "${node.filePath}"`);
+      } else if (process.platform === 'darwin') {
+        // macOS 系统
+        child_process.exec(`open -R "${node.filePath}"`);
+      } else {
+        // Linux 系统
+        child_process.exec(`xdg-open "${folderPath}"`);
+      }
+    } else {
+      vscode.window.showErrorMessage('文件路径无效或文件不存在！');
+    }
+  });
+
   // 将命令添加到订阅中
-  context.subscriptions.push(refreshCommand);
+  context.subscriptions.push(refreshCommand, showInFolderCommand);
 
   // 注册 DefinitionProvider
   const definitionProvider = new VerilogDefinitionProvider();
