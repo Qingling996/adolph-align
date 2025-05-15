@@ -198,7 +198,6 @@ function alignParamDeclaration(line: string, config: WorkspaceConfiguration): st
   const regex = /^\s*(localparam|parameter)\s+([^\s=]+)\s*=\s*([^;,\/]+)\s*(?:[;,])?\s*(?:\s*(\/\/.*|\/\*.*\*\/))?/;
 
 
-
   // 第一次匹配
   const match = line.match(regex);
   if (!match) return line; // 如果不是 parameter/localparam 声明，直接返回原行
@@ -208,11 +207,21 @@ function alignParamDeclaration(line: string, config: WorkspaceConfiguration): st
 
   // 第二次匹配
   const match_new = cleanedLine.match(regex);
-  const type         = match_new[1] || '';
-  const signal       = match_new[2] || '';
-  const value        = match_new[3] || '';
-  const endSymbol    = match_new[4] || ''; // 捕获分号或逗号
-  const comment      = match_new[5] || ''; // 保留注释内容
+  if (match_new) {
+      // 确保 match_new 不为 null 后再使用
+      const type         = match_new[1] || '';
+      const signal       = match_new[2] || '';
+      const value        = match_new[3] || '';
+      const endSymbol    = match_new[4] || ''; // 捕获分号或逗号
+      const comment      = match_new[5] || ''; // 保留注释内容
+      // 其他逻辑
+  
+
+  // const type         = match_new[1] || '';
+  // const signal       = match_new[2] || '';
+  // const value        = match_new[3] || '';
+  // const endSymbol    = match_new[4] || ''; // 捕获分号或逗号
+  // const comment      = match_new[5] || ''; // 保留注释内容
 
   // console.log(`type     : ${type     }`); // 打印日志
   // console.log(`signal   : ${signal   }`); // 打印日志
@@ -294,6 +303,12 @@ function alignParamDeclaration(line: string, config: WorkspaceConfiguration): st
 
   // 其他情况直接返回原行
   return `${alignedType}${alignedSignal}${alignedEquals} ${value}${endSymbol}${comment}`;
+
+  } else {
+      // 处理 match_new 为 null 的情况
+      console.error('No match found');
+  }
+  return line;
 }
 
 /**

@@ -1,7 +1,7 @@
 # Adolph-Align
 
 ## **Parentheses Align**  
-![Version](https://img.shields.io/badge/version-1.0.2-blue)  
+![Version](https://img.shields.io/badge/version-1.0.3-blue)  
 ![License](https://img.shields.io/badge/license-MIT-green)  
 
 ## 1、简介
@@ -68,6 +68,13 @@
 
 ---
 
-## 4、感谢
-参考：[Verilog Hdl Format](https://github.com/1391074994/Verilog-Hdl-Format.git)
-参考：[Verilog-HDL/SystemVerilog/Bluespec SystemVerilog](https://github.com/mshr-h/vscode-verilog-hdl-support.git)
+## 4、版本记录
+- 0.0.1 新建，实现括号对齐功能
+- 1.0.0 缺失依赖，不可用（新增常规代码对齐、verilog文件树、信号跳转）
+- 1.0.1 添加 自建 代码片段(verilog 、vhdl)
+- 1.0.2 缺失依赖，不可用
+- 1.0.3 删除 log.txt(文件树模块识别记录) 文件生成
+
+## 5、感谢
+- 参考：[Verilog Hdl Format](https://github.com/1391074994/Verilog-Hdl-Format.git)
+- 参考：[Verilog-HDL/SystemVerilog/Bluespec SystemVerilog](https://github.com/mshr-h/vscode-verilog-hdl-support.git)

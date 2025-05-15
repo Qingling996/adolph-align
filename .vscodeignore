@@ -15,15 +15,5 @@ vsc-extension-quickstart.md
 **/*.map
 **/*.log
 
-# 忽略 TypeScript 源文件（如果已编译为 JavaScript）
-**/*.ts
-
 # 忽略其他不必要的文件
 **/.vscode-test.*
-node_modules/**
-
-!out/**
-!src/**
-!README.md
-!LICENSE
-

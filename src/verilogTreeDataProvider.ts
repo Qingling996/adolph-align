@@ -49,6 +49,7 @@ export class VerilogTreeDataProvider implements vscode.TreeDataProvider<ModuleNo
     this.moduleFileMap.clear();
     this.instanceMap.clear();
     this.parsedFiles.clear(); // 清空已解析的文件集合
+    this.clearLogFile(); // 清空日志文件
     this.parseVerilogFiles(this.workspaceRoot);
     this.buildTree();
     this._onDidChangeTreeData.fire(undefined);
@@ -105,7 +106,7 @@ export class VerilogTreeDataProvider implements vscode.TreeDataProvider<ModuleNo
     // // 正则表达式匹配实例化名称（支持带参数和不带参数）最初的匹配
     // const instanceRegex = /(\b\w+\b)\s*(?:#\s*\([\s\S]*?\))?\s*(\b\w+\b)\s*\([^;]*\)\s*;/gs;
 
-    const logContent: string[] = [];
+    // const logContent: string[] = [];
 
     // 提取模块名
     let moduleMatch;
@@ -113,7 +114,8 @@ export class VerilogTreeDataProvider implements vscode.TreeDataProvider<ModuleNo
     while ((moduleMatch = moduleRegex.exec(content)) !== null) {
       const moduleName = moduleMatch[1];
       moduleNames.push(moduleName); // 保存模块名
-      logContent.push(this.formatLogEntry(`Module: ${moduleName}`));
+      // logContent.push(this.formatLogEntry(`Module: ${moduleName}`));
+      console.log(`Module: ${moduleName}`); // 打印日志
 
       // 初始化模块关系图
       if (!this.moduleGraph.has(moduleName)) {
@@ -133,7 +135,8 @@ export class VerilogTreeDataProvider implements vscode.TreeDataProvider<ModuleNo
 
       // 过滤掉 Verilog 关键字和模块名
       if (!this.isVerilogKeyword(instanceName) && !this.isVerilogKeyword(instanceType) && !moduleNames.includes(instanceName)) {
-        logContent.push(this.formatLogEntry(`Instance: ${instanceName} (Type: ${instanceType})`));
+        // logContent.push(this.formatLogEntry(`Instance: ${instanceName} (Type: ${instanceType})`));
+        console.log(`Instance: ${instanceName} (Type: ${instanceType})`); // 打印日志
         // console.log(`Inst: ${instanceType}  ${instanceName}`); // 打印日志
         // console.log(`Text: ${instanceContent}\n`); // 打印日志
 
@@ -153,9 +156,10 @@ export class VerilogTreeDataProvider implements vscode.TreeDataProvider<ModuleNo
     }
 
     // 将结果写入 log.txt 文件
-    if (logContent.length > 0 && this.logFilePath) {
-      fs.appendFileSync(this.logFilePath, `File: ${filePath}\n${logContent.join('\n')}\n\n`);
-    }
+    // if (logContent.length > 0 && this.logFilePath) {
+    //   fs.appendFileSync(this.logFilePath, `File: ${filePath}\n${logContent.join('\n')}\n\n`);
+    // }
+    console.log(`File: ${filePath}\n\n`); // 打印日志
   }
 
   private buildTree() {

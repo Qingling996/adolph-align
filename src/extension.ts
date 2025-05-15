@@ -85,6 +85,9 @@ export function activate(context: vscode.ExtensionContext) {
   context.subscriptions.push(
     vscode.languages.registerDefinitionProvider('verilog', definitionProvider)
   );
+
+  // 确保插件激活后调用刷新命令
+  vscode.commands.executeCommand('verilogFileTree.refresh');
 }
 
 export function deactivate() {}

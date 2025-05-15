@@ -15,6 +15,7 @@
     "workspaceContains:**/*.v",
     "onView:adolphAlignView",
     "onLanguage:verilog",
+    "onLanguage:vhdl",
     "onCommand:extension.alignVerilogCode",
     "onCommand:adolph-align.generateInstance"
   ],
