@@ -36,9 +36,9 @@ export function alignVerilogCode(text: string, config: WorkspaceConfiguration): 
       // 如果包含位宽声明，则进一步处理
       if (line.trim().startsWith('input') || line.trim().startsWith('output') || line.trim().startsWith('inout')) {
         result = alignPortDeclaration(result, config);
-      } else if (line.trim().startsWith('reg') || line.trim().startsWith('wire') || line.trim().startsWith('integer')) {
+      } else if (line.trim().startsWith('reg') || line.trim().startsWith('wire') || line.trim().startsWith('integer') || line.trim().startsWith('real')) {
         // 判断是否为二维数组
-        const isTwoDimArray = /(reg|wire)\s*\[[^\]]+\]\s*[^;,\s]+\s*\[[^\]]+\]/.test(line);
+        const isTwoDimArray = /(reg|wire)\s*(signed|unsigned)?\s*\[[^\]]+\]\s*[^;,\s]+\s*\[[^\]]+\]/.test(line);
         if (isTwoDimArray) {
           result = alignTwoDimArrayDeclaration(result, config);
         } else {
@@ -51,7 +51,7 @@ export function alignVerilogCode(text: string, config: WorkspaceConfiguration): 
     } else if (line.trim().startsWith('input') || line.trim().startsWith('output') || line.trim().startsWith('inout')) {
       // 处理参数声明
       return alignPortDeclaration(line, config);
-    } else if (line.trim().startsWith('reg') || line.trim().startsWith('wire') || line.trim().startsWith('integer')) {
+    } else if (line.trim().startsWith('reg') || line.trim().startsWith('wire') || line.trim().startsWith('integer') || line.trim().startsWith('real')) {
       // 处理参数声明
       return alignRegWireIntegerDeclaration(line, config);
     } else if (line.trim().startsWith('localparam') || line.trim().startsWith('parameter')) {
@@ -77,33 +77,41 @@ export function alignVerilogCode(text: string, config: WorkspaceConfiguration): 
  * @param line - 单行文本
  * @param config - 配置对象
  * @returns 对齐后的文本
+    output reg  signed   [g_WORD_SIZE-1: 0]      Z                                       , 
  */
-
 function alignPortDeclaration(line: string, config: WorkspaceConfiguration): string {
-  const num1 = config.get<number>('adolphAlign.num1', 4 ); // 行首到 input/output/inout 左侧的距离
-  const num2 = config.get<number>('adolphAlign.num2', 16); // 行首到位宽左侧“[”之间的距离
-  const num3 = config.get<number>('adolphAlign.num3', 40); // 行首到信号左侧的距离
-  const num4 = config.get<number>('adolphAlign.num4', 80); // 行首到 ",/;" 的长度
+  const num1 = config.get<number>('adolphAlign.num1', 4);   // 行首到 input/output/inout 左侧的距离
+  const num2 = config.get<number>('adolphAlign.num2', 16);  // 行首到 signed/unsigned 左侧的距离
+  const numbb = config.get<number>('adolphAlign.numbb', 25); // 行首到位宽 "[" 左侧的距离
+  const num3 = config.get<number>('adolphAlign.num3', 50);  // 行首到信号左侧的距离
+  const num4 = config.get<number>('adolphAlign.num4', 80);  // 行首到 ",/;" 的长度
 
-  const regex = /(input|output|inout)\s*(reg|wire)?\s*(\[[^\]]+\])?\s*([^;,\s]+)\s*([,;])?\s*(.*)/;
+  // 正则表达式：支持 input/output/inout，以及 signed/unsigned
+  const regex = /(input|output|inout)\s*(reg|wire)?\s*(signed|unsigned)?\s*(\[[^\]]+\])?\s*([^;,\s]+)\s*([,;])?\s*(.*)/;
   const match = line.match(regex);
   if (!match) return line;
 
-  const type        = match[1];
-  const regKeyword  = match[2] || '';
-  const width       = match[3] || '';
-  const signal      = match[4];
-  const endSymbol   = match[5] || ''; // 捕获逗号或分号
-  const comment     = match[6] || ''; // 保留注释内容
+  const type = match[1];                // 类型：input/output/inout
+  const regKeyword = match[2] || '';    // reg/wire 关键字
+  const signedUnsigned = match[3] || ''; // signed/unsigned
+  const width = match[4] || '';         // 位宽声明
+  const signal = match[5];              // 信号名称
+  const endSymbol = match[6] || '';     // 逗号或分号
+  const comment = match[7] || '';       // 注释内容
 
   // 对齐逻辑
   const alignedType = ' '.repeat(num1) + type; // 第 5 列开始
   const alignedRegKeyword = regKeyword ? ' ' + regKeyword : ''; // reg/wire 关键字
 
+  // 对齐 signed/unsigned
+  const signedSpaces = num2 - (num1 + type.length + alignedRegKeyword.length); // 固定对齐到 num2 列
+  const alignedSigned = signedUnsigned ? ' '.repeat(signedSpaces) + signedUnsigned : '';
+
   // 对齐位宽声明
   let alignedWidth = '';
   if (width) {
-    alignedWidth = ' '.repeat(num2 - (num1 + type.length + alignedRegKeyword.length)) + width;
+    const widthSpaces = numbb - (num1 + type.length + alignedRegKeyword.length + alignedSigned.length); // 固定对齐到 numbb 列
+    alignedWidth = ' '.repeat(widthSpaces) + width;
   }
 
   // 对齐信号
@@ -111,15 +119,15 @@ function alignPortDeclaration(line: string, config: WorkspaceConfiguration): str
   let alignedSignal = '';
   if (width) {
     // 带有位宽声明的信号，从第 31 列开始
-    const totalLengthBeforeSignal = num1 + type.length + alignedRegKeyword.length + alignedWidth.length;
+    const totalLengthBeforeSignal = num1 + type.length + alignedRegKeyword.length + alignedSigned.length + alignedWidth.length;
     alignedSignal = ' '.repeat(signalStartPos - totalLengthBeforeSignal) + signal;
   } else {
     // 不带位宽声明的信号，从第 31 列开始
-    const totalLengthBeforeSignal = num1 + type.length + alignedRegKeyword.length;
+    const totalLengthBeforeSignal = num1 + type.length + alignedRegKeyword.length + alignedSigned.length;
     alignedSignal = ' '.repeat(signalStartPos - totalLengthBeforeSignal) + signal;
   }
 
-  // 判断是否以“;”或“,”结尾，以及是否有注释
+  // 对齐分号或逗号以及注释
   let alignedEndSymbolAndComment = '';
   if (endSymbol) {
     // 如果有“;”或“,”，按 num4 对齐
@@ -129,7 +137,7 @@ function alignPortDeclaration(line: string, config: WorkspaceConfiguration): str
     alignedEndSymbolAndComment = ' '.repeat(num4 + 1 - (signalStartPos + signal.length)) + comment;
   }
 
-  return `${alignedType}${alignedRegKeyword}${alignedWidth}${alignedSignal}${alignedEndSymbolAndComment}`;
+  return `${alignedType}${alignedRegKeyword}${alignedSigned}${alignedWidth}${alignedSignal}${alignedEndSymbolAndComment}`;
 }
 
 /**
@@ -137,40 +145,57 @@ function alignPortDeclaration(line: string, config: WorkspaceConfiguration): str
  * @param line - 单行文本
  * @param config - 配置对象
  * @returns 对齐后的文本
- */
-
+*/
 function alignRegWireIntegerDeclaration(line: string, config: WorkspaceConfiguration): string {
-  const num5 = config.get<number>('adolphAlign.num5', 4 ); // 行首到 reg/wire/integer 左侧的距离
-  const num6 = config.get<number>('adolphAlign.num6', 16); // 行首到位宽左侧的距离
-  const num7 = config.get<number>('adolphAlign.num7', 40); // 行首到变量左侧的距离
-  const num8 = config.get<number>('adolphAlign.num8', 80); // 行首到 ";" 的距离
+  const num5 = config.get<number>('adolphAlign.num5', 4);   // 行首到 reg/wire/integer/real 左侧的距离
+  const num6 = config.get<number>('adolphAlign.num6', 16);  // 行首到 signed/unsigned 左侧的距离
+  const numaa = config.get<number>('adolphAlign.numaa', 25); // 行首到位宽 "[" 左侧的距离
+  const num7 = config.get<number>('adolphAlign.num7', 50);   // 行首到变量左侧的距离
+  const num8 = config.get<number>('adolphAlign.num8', 80);   // 行首到 ";" 的距离
 
-  const regex = /^\s*(reg|wire|integer)\s*(\[[^\]]+\])?\s*([^;,\s]+)\s*([,;])?\s*(.*)/;
+  // 正则表达式：支持 reg/wire/integer/real，以及 signed/unsigned
+  // const regex = /^\s*(reg|wire|integer|real)\s*(signed|unsigned)?\s*(\[[^\]]+\])?\s*([^;,\s]+)\s*([,;])?\s*(.*)/;
+  const regex = /^\s*(real|reg|wire|integer)\s*(signed|unsigned)?\s*(\[[^\]]+\])?\s*([^;,\s]+)\s*([,;]\s*)?(.*)/;
+
   const match = line.match(regex);
-  if (!match) return line; // 如果不是 reg/wire/integer 声明，直接返回原行
+  if (!match) return line; // 如果不是 reg/wire/integer/real 声明，直接返回原行
 
-  const type = match[1] || '';
-  const width = match[2] || '';
-  const signal = match[3] || '';
-  const endSymbol = match[4] || ''; // 捕获逗号或分号
-  const comment = match[5] || ''; // 保留注释内容
+  const type = match[1] || '';          // 类型：reg/wire/integer/real
+  const signedUnsigned = match[2] || ''; // signed/unsigned
+  const width = match[3] || '';         // 位宽声明
+  const signal = match[4] || '';        // 信号名称
+  const endSymbol = match[5] || '';     // 逗号或分号
+  const comment = match[6] || '';       // 注释内容
 
   // 对齐逻辑
   const alignedType = ' '.repeat(num5) + type; // 第 5 列开始
 
-  // 对齐位宽声明
-  const widthSpaces = Math.max(0, num6 - (num5 + type.length)); // 确保非负数
+  // 对齐 signed/unsigned
+  const signedSpaces = findNextSpace(line, num6-1, alignedType.length);
+  const alignedSigned = signedUnsigned ? ' '.repeat(signedSpaces) + signedUnsigned : '';
+
+  // 对齐位宽 "["
+  const widthSpaces = findNextSpace(line, numaa-1, alignedType.length + alignedSigned.length);
   const alignedWidth = width ? ' '.repeat(widthSpaces) + width : '';
 
   // 对齐信号
-  const signalSpaces = Math.max(0, num7 - (num5 + type.length + alignedWidth.length)); // 确保非负数
+  const signalSpaces = findNextSpace(line, num7-1, alignedType.length + alignedSigned.length + alignedWidth.length);
   const alignedSignal = signal ? ' '.repeat(signalSpaces) + signal : '';
 
   // 对齐 ";/,"
-  const endSymbolSpaces = Math.max(0, num8 - (num7 + signal.length)); // 确保非负数
+  const endSymbolSpaces = findNextSpace(line, num8-1, alignedType.length + alignedSigned.length + alignedWidth.length + alignedSignal.length);
   const alignedEndSymbol = endSymbol ? ' '.repeat(endSymbolSpaces) + endSymbol + comment : '';
 
-  return `${alignedType}${alignedWidth}${alignedSignal}${alignedEndSymbol}`;
+  return `${alignedType}${alignedSigned}${alignedWidth}${alignedSignal}${alignedEndSymbol}`;
+}
+
+// 查找下一个空格位置
+function findNextSpace(line: string, targetPos: number, currentPos: number): number {
+  let pos = targetPos;
+  while (pos < line.length && line[pos] !== ' ') {
+    pos++;
+  }
+  return Math.max(0, pos - currentPos + 1); // 空一格之后对齐
 }
 
 /**
@@ -181,8 +206,8 @@ function alignRegWireIntegerDeclaration(line: string, config: WorkspaceConfigura
  */
 function alignParamDeclaration(line: string, config: WorkspaceConfiguration): string {
   const num9  = config.get<number>('adolphAlign.num9' , 4 ); // 行首到 parameter/localparam 左侧的距离
-  const num10 = config.get<number>('adolphAlign.num10', 40); // 行首到参数信号左侧的距离
-  const num11 = config.get<number>('adolphAlign.num11', 55); // 行首到 "=" 的距离
+  const num10 = config.get<number>('adolphAlign.num10', 25); // 行首到参数信号左侧的距离
+  const num11 = config.get<number>('adolphAlign.num11', 50); // 行首到 "=" 的距离
   const num12 = config.get<number>('adolphAlign.num12', 80); // 行首到 ";" 或 "," 或 "//" 的距离
 
   // 改进后的正则表达式，支持完整的参数值和注释
@@ -214,14 +239,6 @@ function alignParamDeclaration(line: string, config: WorkspaceConfiguration): st
       const value        = match_new[3] || '';
       const endSymbol    = match_new[4] || ''; // 捕获分号或逗号
       const comment      = match_new[5] || ''; // 保留注释内容
-      // 其他逻辑
-  
-
-  // const type         = match_new[1] || '';
-  // const signal       = match_new[2] || '';
-  // const value        = match_new[3] || '';
-  // const endSymbol    = match_new[4] || ''; // 捕获分号或逗号
-  // const comment      = match_new[5] || ''; // 保留注释内容
 
   // console.log(`type     : ${type     }`); // 打印日志
   // console.log(`signal   : ${signal   }`); // 打印日志
@@ -358,26 +375,34 @@ function alignAssignDeclaration(line: string, config: WorkspaceConfiguration): s
  * @returns 对齐后的文本
  */
 function alignInstanceSignal(line: string, config: WorkspaceConfiguration): string {
-  const num16 = config.get<number>('adolphAlign.num16', 8 ); // 实例化信号 " . " 左侧与行首的距离
-  const num17 = config.get<number>('adolphAlign.num17', 40); // 实例化信号 " . "到“（”的距离
-  const num18 = config.get<number>('adolphAlign.num18', 80); // 实例化信号“（”到“）”的距离
+  const num16 = config.get<number>('adolphAlign.num16', 8);  // 实例化信号 " . " 左侧与行首的距离
+  const num17 = config.get<number>('adolphAlign.num17', 40); // 实例化信号 " . " 到 "(" 的距离
+  const num18 = config.get<number>('adolphAlign.num18', 80); // 实例化信号 "(" 到 ")" 的距离
 
+  // 正则表达式：匹配实例化信号
   const regex = /\.([^\s]+)\s*\(([^)]+)\)([,;])?(.*)/;
   const match = line.match(regex);
   if (!match) return line;
 
-  const signal = match[1] || '';
-  const connection = match[2] || '';
-  const endSymbol = match[3] || ''; // 默认添加分号
-  const comment = match[4] || ''; // 保留注释内容
+  // 提取匹配内容
+  const signal = match[1] || '';        // 信号名称
+  const connection = match[2] || '';   // 连接信号
+  const endSymbol = match[3] || '';     // 分号或逗号
+  const comment = match[4] || '';       // 注释内容
+
+  // 去除不必要的空格
+  const trimmedSignal = signal.trim();
+  const trimmedConnection = connection.trim();
+  const trimmedEndSymbol = endSymbol.trim();
+  const trimmedComment = comment.trim();
 
   // 对齐逻辑
-  const alignedSignal = ' '.repeat(num16) + `.${signal.padEnd(Math.max(0, num17 - num16 - 2))}`;
-  const alignedEndSymbol = endSymbol.trim(); // 去除多余空格
-  const alignedComment = comment.trim(); // 去除多余空格
+  const alignedSignal = ' '.repeat(num16) + `.${trimmedSignal.padEnd(Math.max(0, num17 - num16 - 2))}`;
+  const alignedEndSymbol = trimmedEndSymbol; // 去除多余空格
+  const alignedComment = trimmedComment; // 去除多余空格
 
   // 计算当前 `)` 的位置
-  const currentRightParenthesisPos = alignedSignal.length + connection.length + 2; // +2 是 `(` 和 `)` 的长度
+  const currentRightParenthesisPos = alignedSignal.length + trimmedConnection.length + 2; // +2 是 `(` 和 `)` 的长度
 
   // 目标 `)` 的位置
   const targetRightParenthesisPos = num18;
@@ -386,13 +411,13 @@ function alignInstanceSignal(line: string, config: WorkspaceConfiguration): stri
   const adjustmentLength = targetRightParenthesisPos - currentRightParenthesisPos;
 
   // 调整 `connection` 的长度，确保 `)` 定位到 `num18 + 1`
-  let adjustedConnection = `(${connection})`;
+  let adjustedConnection = `(${trimmedConnection})`;
   if (adjustmentLength > 0) {
     // 如果 `)` 的位置小于 `num18 + 1`，填充空格
-    adjustedConnection = `(${connection.padEnd(connection.length + adjustmentLength)})`;
+    adjustedConnection = `(${trimmedConnection.padEnd(trimmedConnection.length + adjustmentLength)})`;
   } else if (adjustmentLength < 0) {
     // 如果 `)` 的位置大于 `num18 + 1`，仅填充空格，不截断 `connection`
-    adjustedConnection = `(${connection})`;
+    adjustedConnection = `(${trimmedConnection})`;
   }
 
   // 返回对齐后的字符串
@@ -440,30 +465,36 @@ function alignBitWidthDeclaration(line: string, config: SimpleConfig): string {
  * @param config - 配置对象
  * @returns 对齐后的文本
  */
-
 function alignTwoDimArrayDeclaration(line: string, config: WorkspaceConfiguration): string {
-  const num19 = config.get<number>('adolphAlign.num19', 4 ); // 行首到 reg/wire 左侧的距离
-  const num20 = config.get<number>('adolphAlign.num20', 16); // 行首到第一个位宽左侧的距离
-  const num21 = config.get<number>('adolphAlign.num21', 40); // 行首到变量左侧的距离
-  const num22 = config.get<number>('adolphAlign.num22', 55); // 行首到第二个位宽左侧的距离
-  const num23 = config.get<number>('adolphAlign.num23', 80); // 行首到 ";" 的距离
+  const num19 = config.get<number>('adolphAlign.num19', 4);   // 行首到 reg/wire 左侧的距离
+  const numcc = config.get<number>('adolphAlign.numcc', 16);  // 行首到 signed/unsigned 左侧的距离
+  const num20 = config.get<number>('adolphAlign.num20', 25);  // 行首到第一个位宽左侧的距离
+  const num21 = config.get<number>('adolphAlign.num21', 50);  // 行首到变量左侧的距离
+  const num22 = config.get<number>('adolphAlign.num22', 60);  // 行首到第二个位宽左侧的距离
+  const num23 = config.get<number>('adolphAlign.num23', 80);  // 行首到 ";" 的距离
 
-  const regex = /(reg|wire)\s*(\[[^\]]+\])\s*([^;,\s]+)\s*(\[[^\]]+\])\s*([;])?\s*(.*)/;
+  // 正则表达式：支持 reg/wire、signed/unsigned、位宽、变量、注释
+  const regex = /(reg|wire)\s*(signed|unsigned)?\s*(\[[^\]]+\])\s*([^;,\s]+)\s*(\[[^\]]+\])\s*([;])?\s*(.*)/;
   const match = line.match(regex);
   if (!match) return line;
 
-  const type      = match[1] || ''; // reg/wire
-  const width1    = match[2] || ''; // 第一个位宽
-  const signal    = match[3] || ''; // 变量
-  const width2    = match[4] || ''; // 第二个位宽
-  const endSymbol = match[5] || ''; // 分号
-  const comment   = match[6] || ''; // 注释
+  const type           = match[1] || ''; // reg/wire
+  const signedUnsigned = match[2] || ''; // signed/unsigned
+  const width1         = match[3] || ''; // 第一个位宽
+  const signal         = match[4] || ''; // 变量
+  const width2         = match[5] || ''; // 第二个位宽
+  const endSymbol      = match[6] || ''; // 分号
+  const comment        = match[7] || ''; // 注释
 
   // 对齐逻辑
   const alignedType = ' '.repeat(num19) + type; // 第 5 列开始
 
+  // 对齐 signed/unsigned
+  const signedSpaces = Math.max(0, numcc - (num19 + type.length)); // 确保非负数
+  const alignedSigned = signedUnsigned ? ' '.repeat(signedSpaces) + signedUnsigned : '';
+
   // 对齐第一个位宽
-  const width1Spaces = Math.max(0, num20 - (num19 + type.length)); // 确保非负数
+  const width1Spaces = Math.max(0, num20 - (numcc + (signedUnsigned ? signedUnsigned.length : 0))); // 确保非负数
   const alignedWidth1 = width1 ? ' '.repeat(width1Spaces) + width1 : '';
 
   // 对齐变量
@@ -481,5 +512,6 @@ function alignTwoDimArrayDeclaration(line: string, config: WorkspaceConfiguratio
   // 对齐注释
   const alignedComment = comment ? ' ' + comment : '';
 
-  return `${alignedType}${alignedWidth1}${alignedSignal}${alignedWidth2}${alignedEndSymbol}${alignedComment}`;
+  // 返回对齐后的字符串
+  return `${alignedType}${alignedSigned}${alignedWidth1}${alignedSignal}${alignedWidth2}${alignedEndSymbol}${alignedComment}`;
 }
