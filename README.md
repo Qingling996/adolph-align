@@ -24,34 +24,37 @@
 
 ```json
 {
-  "adolphAlign.num1": 4,  // Port: 行首到 input/output/inout 左侧的距离
-  "adolphAlign.num2": 16, // Port: 行首到 位宽左侧“[”之间的距离
-  "adolphAlign.num3": 40, // Port: 行首到 信号左侧的距离
-  "adolphAlign.num4": 80, // Port: 行首到 ",/;" 的长度
+  "adolphAlign.port_num1":  4, // Port: 行首到 input/output/inout 左侧的距离
+  "adolphAlign.port_num2": 16, // Port: 行首到 signed/unsigned 左侧的距离
+  "adolphAlign.port_num3": 25, // Port: 行首到位宽 "[" 左侧的距离
+  "adolphAlign.port_num4": 50, // Port: 行首到信号左侧的距离
+  "adolphAlign.port_num5": 80, // Port: 行首到 ",/;" 的长度
 
-  "adolphAlign.num5": 4,  // 变量: 行首到 reg/wire/integer 左侧的距离
-  "adolphAlign.num6": 16, // 变量: 行首到 位宽左侧的距离
-  "adolphAlign.num7": 40, // 变量: 行首到 变量左侧的距离
-  "adolphAlign.num8": 80, // 变量: 行首到 ";" 的距离
+  "adolphAlign.signal_num1":  4, // 变量: 行首到 reg/wire/integer/real 左侧的距离
+  "adolphAlign.signal_num2": 16, // 变量: 行首到 signed/unsigned 左侧的距离
+  "adolphAlign.signal_num3": 25, // 变量: 行首到位宽 "[" 左侧的距离
+  "adolphAlign.signal_num4": 50, // 变量: 行首到变量左侧的距离
+  "adolphAlign.signal_num5": 80, // 变量: 行首到 ";" 的距离
 
-  "adolphAlign.num9": 4,  // 参数: 行首到 parameter/localparam 左侧的距离
-  "adolphAlign.num10": 40, // 参数: 行首到 参数信号左侧的距离
-  "adolphAlign.num11": 55, // 参数: 行首到 "=" 的距离
-  "adolphAlign.num12": 80, // 参数: 行首到 ";" 或 "," 或 "//" 的距离
+  "adolphAlign.param_num1": 4,  // 参数: 行首到 parameter/localparam 左侧的距离
+  "adolphAlign.param_num2": 40, // 参数: 行首到 参数信号左侧的距离
+  "adolphAlign.param_num3": 55, // 参数: 行首到 "=" 的距离
+  "adolphAlign.param_num4": 80, // 参数: 行首到 ";" 或 "," 或 "//" 的距离
 
-  "adolphAlign.num13": 4,  // assign: 行首到 assign 左侧的距离
-  "adolphAlign.num14": 12, // assign: 行首到 变量左侧的距离
-  "adolphAlign.num15": 30, // assign: 行首到 “=”的距离
+  "adolphAlign.assign_num1": 4,  // assign: 行首到 assign 左侧的距离
+  "adolphAlign.assign_num2": 12, // assign: 行首到 变量左侧的距离
+  "adolphAlign.assign_num3": 30, // assign: 行首到 “=”的距离
 
-  "adolphAlign.num16": 8,  // 实例化: " . " 左侧与行首的距离
-  "adolphAlign.num17": 40, // 实例化: 信号 " . "到“（”的距离
-  "adolphAlign.num18": 80, // 实例化: 信号“（”到“）”的距离
+  "adolphAlign.inst_num1": 8,  // 实例化: " . " 左侧与行首的距离
+  "adolphAlign.inst_num2": 40, // 实例化: 信号 " . "到“（”的距离
+  "adolphAlign.inst_num3": 80, // 实例化: 信号“（”到“）”的距离
 
-  "adolphAlign.num19": 4,  // 数组: 行首到 reg/wire 左侧的距离
-  "adolphAlign.num20": 16, // 数组: 行首到 第一个位宽左侧的距离
-  "adolphAlign.num21": 40, // 数组: 行首到 变量左侧的距离
-  "adolphAlign.num22": 55, // 数组: 行首到 第二个位宽左侧的距离
-  "adolphAlign.num23": 80, // 数组: 行首到 ";" 的距离
+  "adolphAlign.array_num1":  4,  // 数组: 行首到 reg/wire 左侧的距离
+  "adolphAlign.array_num2": 16,  // 数组: 行首到 signed/unsigned 左侧的距离
+  "adolphAlign.array_num3": 25,  // 数组: 行首到第一个位宽左侧的距离
+  "adolphAlign.array_num4": 50,  // 数组: 行首到变量左侧的距离
+  "adolphAlign.array_num5": 60,  // 数组: 行首到第二个位宽左侧的距离
+  "adolphAlign.array_num6": 80,  // 数组: 行首到 ";" 的距离
 
   "adolphAlign.upbound": 2, // 位宽 [] 内的上限空格数
   "adolphAlign.lowbound": 2  // 位宽 [] 内的下限空格数
@@ -75,6 +78,7 @@
 - 1.0.3 删除 log.txt(文件树模块识别记录) 文件生成, 改为console打印
 - 1.0.4 增加对real/signed/unsigned的支持，然后对齐指令一次不生效的话，多来几次吧(一般三次即可)
 -       增加文件树对vhdl的模块识别支持
+-       修改了配置参数名，详情见上 2.2
 
 ## 5、感谢
 - 参考：[Verilog Hdl Format](https://github.com/1391074994/Verilog-Hdl-Format.git)

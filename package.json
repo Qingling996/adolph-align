@@ -92,117 +92,132 @@
     "configuration": {
       "title": "Adolph-Verilog-Align",
       "properties": {
-        "adolphAlign.num1": {
+        "adolphAlign.port_num1": {
           "type": "number",
           "default": 4,
           "description": "Port: 行首到 input/output/inout 左侧的距离"
         },
-        "adolphAlign.num2": {
+        "adolphAlign.port_num2": {
           "type": "number",
           "default": 16,
+          "description": "Port: 行首到 signed/unsigned 左侧的距离"
+        },
+        "adolphAlign.port_num3": {
+          "type": "number",
+          "default": 25,
           "description": "Port: 行首到 位宽左侧“[”之间的距离"
         },
-        "adolphAlign.num3": {
+        "adolphAlign.port_num4": {
           "type": "number",
-          "default": 40,
+          "default": 50,
           "description": "Port: 行首到 信号左侧的距离"
         },
-        "adolphAlign.num4": {
+        "adolphAlign.port_num5": {
           "type": "number",
           "default": 80,
           "description": "Port: 行首到  , ; 的长度"
         },
-        "adolphAlign.num5": {
+        "adolphAlign.signal_num1": {
           "type": "number",
           "default": 4,
           "description": "变量: 行首到 reg/wire/integer 左侧的距离"
         },
-        "adolphAlign.num6": {
+        "adolphAlign.signal_num2": {
           "type": "number",
           "default": 16,
+          "description": "变量: 行首到 signed/unsigned 左侧的距离"
+        },
+        "adolphAlign.signal_num3": {
+          "type": "number",
+          "default": 25,
           "description": "变量: 行首到 位宽左侧的距离"
         },
-        "adolphAlign.num7": {
+        "adolphAlign.signal_num4": {
           "type": "number",
-          "default": 40,
+          "default": 50,
           "description": "变量: 行首到 变量左侧的距离"
         },
-        "adolphAlign.num8": {
+        "adolphAlign.signal_num5": {
           "type": "number",
           "default": 80,
           "description": "变量: 行首到 ; 的距离"
         },
-        "adolphAlign.num9": {
+        "adolphAlign.param_num1": {
           "type": "number",
           "default": 4,
           "description": "参数: 行首到 parameter/localparam 左侧的距离"
         },
-        "adolphAlign.num10": {
+        "adolphAlign.param_num2": {
           "type": "number",
           "default": 40,
           "description": "参数: 行首到 参数信号左侧的距离"
         },
-        "adolphAlign.num11": {
+        "adolphAlign.param_num3": {
           "type": "number",
           "default": 55,
           "description": "参数: 行首到 = 的距离"
         },
-        "adolphAlign.num12": {
+        "adolphAlign.param_num4": {
           "type": "number",
           "default": 80,
           "description": "参数: 行首到 行首到 ; 或 , 或 // 的距离"
         },
-        "adolphAlign.num13": {
+        "adolphAlign.assign_num1": {
           "type": "number",
           "default": 4,
           "description": "assign: 行首到  assign 左侧的距离"
         },
-        "adolphAlign.num14": {
+        "adolphAlign.assign_num2": {
           "type": "number",
           "default": 12,
           "description": "assign: 行首到  变量左侧的距离"
         },
-        "adolphAlign.num15": {
+        "adolphAlign.assign_num3": {
           "type": "number",
           "default": 30,
           "description": "assign: 行首到  “=”的距离"
         },
-        "adolphAlign.num16": {
+        "adolphAlign.inst_num1": {
           "type": "number",
           "default": 8,
           "description": "实例化:  ,  左侧与行首的距离"
         },
-        "adolphAlign.num17": {
+        "adolphAlign.inst_num2": {
           "type": "number",
           "default": 40,
           "description": "实例化: 信号 , 到“（”的距离"
         },
-        "adolphAlign.num18": {
+        "adolphAlign.inst_num3": {
           "type": "number",
           "default": 80,
           "description": "实例化: 信号“（”到“）”的距离"
         },
-        "adolphAlign.num19": {
+        "adolphAlign.array_num1": {
           "type": "number",
           "default": 4,
           "description": "数组: 行首到 reg/wire 左侧的距离"
         },
-        "adolphAlign.num20": {
+        "adolphAlign.array_num2": {
           "type": "number",
           "default": 16,
+          "description": "数组: 行首到 signed/unsigned 左侧的距离"
+        },
+        "adolphAlign.array_num3": {
+          "type": "number",
+          "default": 25,
           "description": "数组: 行首到 第一个位宽左侧的距离"
         },
-        "adolphAlign.num21": {
+        "adolphAlign.array_num4": {
           "type": "number",
-          "default": 40,
+          "default": 50,
           "description": "数组: 行首到 变量左侧的距离"
         },
-        "adolphAlign.num22": {
+        "adolphAlign.array_num5": {
           "type": "number",
-          "default": 55,
+          "default": 60,
           "description": "数组: 行首到 第二个位宽左侧的距离"
         },
-        "adolphAlign.num23": {
+        "adolphAlign.array_num6": {
           "type": "number",
           "default": 80,
           "description": "数组: 行首到 ; 的距离"
