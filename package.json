@@ -47,6 +47,16 @@
         "title": "在文件夹中显示"
       }
     ],
+    "languages": [
+      {
+        "id": "verilog",
+        "extensions": [".v"]
+      },
+      {
+        "id": "vhdl",
+        "extensions": [".vhd", ".vhdl"]
+      }
+    ],
     "keybindings": [
       {
         "command": "adolph-align.left",

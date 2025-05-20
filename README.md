@@ -73,7 +73,8 @@
 - 1.0.1 添加 自建 代码片段(verilog 、vhdl)
 - 1.0.2 缺失依赖，不可用
 - 1.0.3 删除 log.txt(文件树模块识别记录) 文件生成, 改为console打印
-- 1.0.4 增加对real/signed/unsigned的支持，然后对齐指令一次不生效的话，多来几次吧
+- 1.0.4 增加对real/signed/unsigned的支持，然后对齐指令一次不生效的话，多来几次吧(一般三次即可)
+-       增加文件树对vhdl的模块识别支持
 
 ## 5、感谢
 - 参考：[Verilog Hdl Format](https://github.com/1391074994/Verilog-Hdl-Format.git)
