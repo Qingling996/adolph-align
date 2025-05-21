@@ -1,7 +1,7 @@
 # Adolph-Align
 
 ## **Parentheses Align**  
-![Version](https://img.shields.io/badge/version-1.0.4-blue)  
+![Version](https://img.shields.io/badge/version-1.0.5-blue)  
 ![License](https://img.shields.io/badge/license-MIT-green)  
 
 ## 1、简介
@@ -79,6 +79,7 @@
 - 1.0.4 增加对real/signed/unsigned的支持，然后对齐指令一次不生效的话，多来几次吧(一般三次即可)
 -       增加文件树对vhdl的模块识别支持
 -       修改了配置参数名，详情见上 2.2
+- 1.0.5 修复配置项修改不成功的bug
 
 ## 5、感谢
 - 参考：[Verilog Hdl Format](https://github.com/1391074994/Verilog-Hdl-Format.git)

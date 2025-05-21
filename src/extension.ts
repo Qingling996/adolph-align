@@ -14,20 +14,34 @@ export function activate(context: vscode.ExtensionContext) {
   const alignCommand = vscode.commands.registerCommand('adolph-align.align', () => {
     const editor = vscode.window.activeTextEditor;
     if (!editor) return;
+
     // 获取配置
     const config = vscode.workspace.getConfiguration('adolphAlign');
+    // console.log('配置已加载:', config);
+
     // 获取选中的文本
     const text = editor.document.getText(editor.selection);
+
     // 对齐代码
     const alignedText = alignVerilogCode(text, config);
+
     // 替换选中的文本
     editor.edit(editBuilder => {
       editBuilder.replace(editor.selection, alignedText);
     });
+
     console.log('Verilog align 已执行');
   });
 
   context.subscriptions.push(alignCommand);
+
+  // 监听配置变化
+  vscode.workspace.onDidChangeConfiguration((event) => {
+    if (event.affectsConfiguration('adolphAlign')) {
+      console.log('配置已修改，重新执行对齐逻辑');
+      vscode.commands.executeCommand('adolph-align.align');
+    }
+  });
 
   // 注册括号对齐命令
   console.log('括号对齐 已注册');

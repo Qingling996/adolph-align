@@ -3,7 +3,7 @@
   "displayName": "Adolph-Align",
   "description": "code align",
   "publisher": "AdolphWang",
-  "version": "1.0.4",
+  "version": "1.0.5",
   "engines": {
     "vscode": "^1.50.0"
   },

@@ -7,7 +7,8 @@ import { WorkspaceConfiguration } from 'vscode';
  * @param config - 配置对象
  * @returns 对齐后的文本
  */
-export function alignVerilogCode(text: string, config: WorkspaceConfiguration): string {
+
+export function alignVerilogCode(text: string, config: vscode.WorkspaceConfiguration): string {
   const lines = text.split('\n');
   const alignedLines = lines.map(line => {
     // 如果是注释行或空行，直接返回
@@ -49,26 +50,19 @@ export function alignVerilogCode(text: string, config: WorkspaceConfiguration): 
       }
       return result;
     } else if (line.trim().startsWith('input') || line.trim().startsWith('output') || line.trim().startsWith('inout')) {
-      // 处理参数声明
       return alignPortDeclaration(line, config);
     } else if (line.trim().startsWith('reg') || line.trim().startsWith('wire') || line.trim().startsWith('integer') || line.trim().startsWith('real')) {
-      // 处理参数声明
       return alignRegWireIntegerDeclaration(line, config);
     } else if (line.trim().startsWith('localparam') || line.trim().startsWith('parameter')) {
-      // 处理参数声明
       return alignParamDeclaration(line, config);
     } else if (line.trim().startsWith('assign')) {
-      // 处理 assign 语句
       return alignAssignDeclaration(line, config);
     } else if (line.trim().startsWith('.')) {
-      // 处理实例信号
       return alignInstanceSignal(line, config);
     } else {
-      // 其他情况保持原样
       return line;
     }
   });
-
   return alignedLines.join('\n');
 }
 
@@ -79,25 +73,25 @@ export function alignVerilogCode(text: string, config: WorkspaceConfiguration): 
  * @returns 对齐后的文本
     output reg  signed   [g_WORD_SIZE-1: 0]      Z                                       , 
  */
-function alignPortDeclaration(line: string, config: WorkspaceConfiguration): string {
-  const port_num1 = config.get<number>('adolphAlign.port_num1', 4);   // 行首到 input/output/inout 左侧的距离
-  const port_num2 = config.get<number>('adolphAlign.port_num2', 16);  // 行首到 signed/unsigned 左侧的距离
-  const port_num3 = config.get<number>('adolphAlign.port_num3', 25); // 行首到位宽 "[" 左侧的距离
-  const port_num4 = config.get<number>('adolphAlign.port_num4', 50);  // 行首到信号左侧的距离
-  const port_num5 = config.get<number>('adolphAlign.port_num5', 80);  // 行首到 ",/;" 的长度
+function alignPortDeclaration(line: string, config: vscode.WorkspaceConfiguration): string {
+  const port_num1 = config.get<number>('port_num1', 4 ); // 行首到 input/output/inout 左侧的距离
+  const port_num2 = config.get<number>('port_num2', 16); // 行首到 signed/unsigned 左侧的距离
+  const port_num3 = config.get<number>('port_num3', 25); // 行首到位宽 "[" 左侧的距离
+  const port_num4 = config.get<number>('port_num4', 50); // 行首到信号左侧的距离
+  const port_num5 = config.get<number>('port_num5', 80); // 行首到 ",/;" 的长度
 
   // 正则表达式：支持 input/output/inout，以及 signed/unsigned
   const regex = /(input|output|inout)\s*(reg|wire)?\s*(signed|unsigned)?\s*(\[[^\]]+\])?\s*([^;,\s]+)\s*([,;])?\s*(.*)/;
   const match = line.match(regex);
   if (!match) return line;
 
-  const type            = match[1].trim();                // 类型：input/output/inout
+  const type            = match[1].trim();          // 类型：input/output/inout
   const regKeyword      = (match[2] || '').trim();  // reg/wire 关键字
-  const signedUnsigned  = (match[3] || '').trim(); // signed/unsigned
-  const width           = (match[4] || '').trim();       // 位宽声明
-  const signal          = match[5].trim();              // 信号名称
-  const endSymbol       = (match[6] || '').trim();   // 逗号或分号
-  const comment         = (match[7] || '').trim();     // 注释内容
+  const signedUnsigned  = (match[3] || '').trim();  // signed/unsigned
+  const width           = (match[4] || '').trim();  // 位宽声明
+  const signal          = match[5].trim();          // 信号名称
+  const endSymbol       = (match[6] || '').trim();  // 逗号或分号
+  const comment         = (match[7] || '').trim();  // 注释内容
 
   // 对齐逻辑
   const alignedType = ' '.repeat(port_num1) + type; // 第 5 列开始
@@ -146,12 +140,12 @@ function alignPortDeclaration(line: string, config: WorkspaceConfiguration): str
  * @param config - 配置对象
  * @returns 对齐后的文本
 */
-function alignRegWireIntegerDeclaration(line: string, config: WorkspaceConfiguration): string {
-  const signal_num1 = config.get<number>('adolphAlign.signal_num1',  4);   // 行首到 reg/wire/integer/real 左侧的距离
-  const signal_num2 = config.get<number>('adolphAlign.signal_num2', 16);  // 行首到 signed/unsigned 左侧的距离
-  const signal_num3 = config.get<number>('adolphAlign.signal_num3', 25); // 行首到位宽 "[" 左侧的距离
-  const signal_num4 = config.get<number>('adolphAlign.signal_num4', 50);   // 行首到变量左侧的距离
-  const signal_num5 = config.get<number>('adolphAlign.signal_num5', 80);   // 行首到 ";" 的距离
+function alignRegWireIntegerDeclaration(line: string, config: vscode.WorkspaceConfiguration): string {
+  const signal_num1 = config.get<number>('signal_num1',  4);   // 行首到 reg/wire/integer/real 左侧的距离
+  const signal_num2 = config.get<number>('signal_num2', 16);  // 行首到 signed/unsigned 左侧的距离
+  const signal_num3 = config.get<number>('signal_num3', 25); // 行首到位宽 "[" 左侧的距离
+  const signal_num4 = config.get<number>('signal_num4', 50);   // 行首到变量左侧的距离
+  const signal_num5 = config.get<number>('signal_num5', 80);   // 行首到 ";" 的距离
 
   // 正则表达式：支持 reg/wire/integer/real，以及 signed/unsigned
   // const regex = /^\s*(reg|wire|integer|real)\s*(signed|unsigned)?\s*(\[[^\]]+\])?\s*([^;,\s]+)\s*([,;])?\s*(.*)/;
@@ -204,11 +198,11 @@ function findNextSpace(line: string, targetPos: number, currentPos: number): num
  * @param config - 配置对象
  * @returns 对齐后的文本
  */
-function alignParamDeclaration(line: string, config: WorkspaceConfiguration): string {
-  const param_num1 = config.get<number>('adolphAlign.param_num1', 4 ); // 行首到 parameter/localparam 左侧的距离
-  const param_num2 = config.get<number>('adolphAlign.param_num2', 25); // 行首到参数信号左侧的距离
-  const param_num3 = config.get<number>('adolphAlign.param_num3', 50); // 行首到 "=" 的距离
-  const param_num4 = config.get<number>('adolphAlign.param_num4', 80); // 行首到 ";" 或 "," 或 "//" 的距离
+function alignParamDeclaration(line: string, config: vscode.WorkspaceConfiguration): string {
+  const param_num1 = config.get<number>('param_num1', 4 ); // 行首到 parameter/localparam 左侧的距离
+  const param_num2 = config.get<number>('param_num2', 25); // 行首到参数信号左侧的距离
+  const param_num3 = config.get<number>('param_num3', 50); // 行首到 "=" 的距离
+  const param_num4 = config.get<number>('param_num4', 80); // 行首到 ";" 或 "," 或 "//" 的距离
 
   const regex = /^\s*(localparam|parameter)\s+([^\s=]+)\s*=\s*([^;,\/]+)\s*(?:[;,])?\s*(?:\s*(\/\/.*|\/\*.*\*\/))?/;
 
@@ -311,10 +305,10 @@ function alignParamDeclaration(line: string, config: WorkspaceConfiguration): st
  * @param config - 配置对象
  * @returns 对齐后的文本
  */
-function alignAssignDeclaration(line: string, config: WorkspaceConfiguration): string {
-  const assign_num1 = config.get<number>('adolphAlign.assign_num1', 4 ); // 行首到 assign 左侧的距离
-  const assign_num2 = config.get<number>('adolphAlign.assign_num2', 12); // 行首到变量左侧的距离
-  const assign_num3 = config.get<number>('adolphAlign.assign_num3', 30); // 行首到“=”的距离
+function alignAssignDeclaration(line: string, config: vscode.WorkspaceConfiguration): string {
+  const assign_num1 = config.get<number>('assign_num1', 4 ); // 行首到 assign 左侧的距离
+  const assign_num2 = config.get<number>('assign_num2', 12); // 行首到变量左侧的距离
+  const assign_num3 = config.get<number>('assign_num3', 30); // 行首到“=”的距离
 
   const regex = /assign\s+([^\s]+)\s*=\s*([^;]+)([;,])?(.*)/;
   const match = line.match(regex);
@@ -351,10 +345,10 @@ function alignAssignDeclaration(line: string, config: WorkspaceConfiguration): s
  * @param config - 配置对象
  * @returns 对齐后的文本
  */
-function alignInstanceSignal(line: string, config: WorkspaceConfiguration): string {
-  const inst_num1 = config.get<number>('adolphAlign.inst_num1', 8 );  // 实例化信号 " . " 左侧与行首的距离
-  const inst_num2 = config.get<number>('adolphAlign.inst_num2', 40); // 实例化信号 " . " 到 "(" 的距离
-  const inst_num3 = config.get<number>('adolphAlign.inst_num3', 80); // 实例化信号 "(" 到 ")" 的距离
+function alignInstanceSignal(line: string, config: vscode.WorkspaceConfiguration): string {
+  const inst_num1 = config.get<number>('inst_num1', 8 );  // 实例化信号 " . " 左侧与行首的距离
+  const inst_num2 = config.get<number>('inst_num2', 40); // 实例化信号 " . " 到 "(" 的距离
+  const inst_num3 = config.get<number>('inst_num3', 80); // 实例化信号 "(" 到 ")" 的距离
 
   // 正则表达式：匹配实例化信号
   const regex = /\.([^\s]+)\s*\(([^)]+)\)([,;])?(.*)/;
@@ -413,8 +407,8 @@ interface SimpleConfig {
 }
 
 function alignBitWidthDeclaration(line: string, config: SimpleConfig): string {
-  const upbound = config.get('adolphAlign.upbound', 2); // 
-  const lowbound = config.get('adolphAlign.lowbound', 2); // 
+  const upbound = config.get('upbound', 2); // 
+  const lowbound = config.get('lowbound', 2); // 
 
   // 改进后的正则表达式，支持匹配包含变量的位宽声明
   const regex = /\[\s*([^\s:]+)\s*:\s*([^\s\]]+)\s*\]/;
@@ -442,13 +436,13 @@ function alignBitWidthDeclaration(line: string, config: SimpleConfig): string {
  * @param config - 配置对象
  * @returns 对齐后的文本
  */
-function alignTwoDimArrayDeclaration(line: string, config: WorkspaceConfiguration): string {
-  const array_num1 = config.get<number>('adolphAlign.array_num1', 4);  // 行首到 reg/wire 左侧的距离
-  const array_num2 = config.get<number>('adolphAlign.array_num2', 16);  // 行首到 signed/unsigned 左侧的距离
-  const array_num3 = config.get<number>('adolphAlign.array_num3', 25);  // 行首到第一个位宽左侧的距离
-  const array_num4 = config.get<number>('adolphAlign.array_num4', 50);  // 行首到变量左侧的距离
-  const array_num5 = config.get<number>('adolphAlign.array_num5', 60);  // 行首到第二个位宽左侧的距离
-  const array_num6 = config.get<number>('adolphAlign.array_num6', 80);  // 行首到 ";" 的距离
+function alignTwoDimArrayDeclaration(line: string, config: vscode.WorkspaceConfiguration): string {
+  const array_num1 = config.get<number>('array_num1', 4 );  // 行首到 reg/wire 左侧的距离
+  const array_num2 = config.get<number>('array_num2', 16);  // 行首到 signed/unsigned 左侧的距离
+  const array_num3 = config.get<number>('array_num3', 25);  // 行首到第一个位宽左侧的距离
+  const array_num4 = config.get<number>('array_num4', 50);  // 行首到变量左侧的距离
+  const array_num5 = config.get<number>('array_num5', 60);  // 行首到第二个位宽左侧的距离
+  const array_num6 = config.get<number>('array_num6', 80);  // 行首到 ";" 的距离
 
   // 正则表达式：支持 reg/wire、signed/unsigned、位宽、变量、注释
   const regex = /(reg|wire)\s*(signed|unsigned)?\s*(\[[^\]]+\])\s*([^;,\s]+)\s*(\[[^\]]+\])\s*([;])?\s*(.*)/;
