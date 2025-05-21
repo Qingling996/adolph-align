@@ -1,8 +1,19 @@
 # Adolph-Align
 
-## **Parentheses Align**  
+## **Version**  
 ![Version](https://img.shields.io/badge/version-1.0.5-blue)  
 ![License](https://img.shields.io/badge/license-MIT-green)  
+- 0.0.1 新建，实现括号对齐功能
+- 1.0.0 缺失依赖，不可用（新增常规代码对齐、verilog文件树、信号跳转）
+- 1.0.1 添加 自建 代码片段(verilog 、vhdl)
+- 1.0.2 缺失依赖，不可用
+- 1.0.3 删除 log.txt(文件树模块识别记录) 文件生成, 改为console打印
+- 1.0.4 增加对real/signed/unsigned的支持，然后对齐指令一次不生效的话，多来几次吧(一般三次即可)
+-       增加文件树对vhdl的模块识别支持
+-       修改了配置参数名，详情见上 2.2
+- 1.0.5 修复配置项修改不成功的bug
+
+---
 
 ## 1、简介
 自用插件，参考各位大佬和 AI 工具完成的，请不要要求太多。
@@ -64,23 +75,14 @@
     入口在左侧，点击即用
 ### 4.ctrl + 鼠标左键跳转定义
 ### 5.自用代码片段
+
 ---
+
 ## 3、仓库
 项目地址: [adolph-align](https://github.com/Qingling996/adolph-align)
 
 ---
 
-## 4、版本记录
-- 0.0.1 新建，实现括号对齐功能
-- 1.0.0 缺失依赖，不可用（新增常规代码对齐、verilog文件树、信号跳转）
-- 1.0.1 添加 自建 代码片段(verilog 、vhdl)
-- 1.0.2 缺失依赖，不可用
-- 1.0.3 删除 log.txt(文件树模块识别记录) 文件生成, 改为console打印
-- 1.0.4 增加对real/signed/unsigned的支持，然后对齐指令一次不生效的话，多来几次吧(一般三次即可)
--       增加文件树对vhdl的模块识别支持
--       修改了配置参数名，详情见上 2.2
-- 1.0.5 修复配置项修改不成功的bug
-
-## 5、感谢
+## 4、感谢
 - 参考：[Verilog Hdl Format](https://github.com/1391074994/Verilog-Hdl-Format.git)
 - 参考：[Verilog-HDL/SystemVerilog/Bluespec SystemVerilog](https://github.com/mshr-h/vscode-verilog-hdl-support.git)
