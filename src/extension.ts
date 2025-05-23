@@ -73,26 +73,19 @@ export function activate(context: vscode.ExtensionContext) {
   });
 
   // 注册 "在文件夹中显示" 命令
-  const showInFolderCommand = vscode.commands.registerCommand('verilogFileTree.showInFolder', (node) => {
-    if (node && node.filePath) {
-      const folderPath = path.dirname(node.filePath);
-      if (process.platform === 'win32') {
-        // Windows 系统
-        child_process.exec(`explorer.exe /select, "${node.filePath}"`);
-      } else if (process.platform === 'darwin') {
-        // macOS 系统
-        child_process.exec(`open -R "${node.filePath}"`);
+  context.subscriptions.push(vscode.commands.registerCommand('verilogTree.openContainingFolder', (node: any) => {
+      // 检查传入的 node 是否是 ModuleNode 实例或包含 resourceUri
+      if (node && node.resourceUri && node.resourceUri.scheme === 'file') {
+          // 使用 VS Code 内置命令 revealFileInOS
+          // 这个命令通常会打开文件所在的文件夹并在文件管理器中选中文件
+          vscode.commands.executeCommand('revealFileInOS', node.resourceUri);
       } else {
-        // Linux 系统
-        child_process.exec(`xdg-open "${folderPath}"`);
+          vscode.window.showErrorMessage('Cannot open folder: Invalid file path or file not found.');
       }
-    } else {
-      vscode.window.showErrorMessage('文件路径无效或文件不存在！');
-    }
-  });
+  }));
 
   // 将命令添加到订阅中
-  context.subscriptions.push(refreshCommand, showInFolderCommand);
+  // context.subscriptions.push(refreshCommand, showInFolderCommand);
 
   // 注册 DefinitionProvider
   const definitionProvider = new VerilogDefinitionProvider();

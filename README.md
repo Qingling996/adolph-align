@@ -1,7 +1,7 @@
 # Adolph-Align
 
 ## **Version**  
-![Version](https://img.shields.io/badge/version-1.0.5-blue)  
+![Version](https://img.shields.io/badge/version-1.1.0-blue)  
 ![License](https://img.shields.io/badge/license-MIT-green)  
 - 0.0.1 新建，实现括号对齐功能
 - 1.0.0 缺失依赖，不可用（新增常规代码对齐、verilog文件树、信号跳转）
@@ -12,7 +12,9 @@
 -       ---增加文件树对vhdl的模块识别支持
 -       ---修改了配置参数名，详情见上 2.2
 - 1.0.5 修复配置项修改不成功的bug
-
+- 1.1.0 修复 对齐指令多次才能满足要求的bug  
+-       ---修复 同一 module/entity 对应多个文件时的覆盖显示问题(节点指向文件为 module/entity对应同名文件); 鼠标悬停在文件树节点上,可查看该节点对应的不同文件以及路径
+-       ---新增 对always进程的格式处理
 ---
 
 ## 1、简介
@@ -37,14 +39,14 @@
 {
   "adolphAlign.port_num1":  4, // Port: 行首到 input/output/inout 左侧的距离
   "adolphAlign.port_num2": 16, // Port: 行首到 signed/unsigned 左侧的距离
-  "adolphAlign.port_num3": 25, // Port: 行首到位宽 "[" 左侧的距离
-  "adolphAlign.port_num4": 50, // Port: 行首到信号左侧的距离
+  "adolphAlign.port_num3": 25, // Port: 行首到 "[" 左侧的距离
+  "adolphAlign.port_num4": 50, // Port: 行首到 信号左侧的距离
   "adolphAlign.port_num5": 80, // Port: 行首到 ",/;" 的长度
 
   "adolphAlign.signal_num1":  4, // 变量: 行首到 reg/wire/integer/real 左侧的距离
   "adolphAlign.signal_num2": 16, // 变量: 行首到 signed/unsigned 左侧的距离
-  "adolphAlign.signal_num3": 25, // 变量: 行首到位宽 "[" 左侧的距离
-  "adolphAlign.signal_num4": 50, // 变量: 行首到变量左侧的距离
+  "adolphAlign.signal_num3": 25, // 变量: 行首到 "[" 左侧的距离
+  "adolphAlign.signal_num4": 50, // 变量: 行首到 变量左侧的距离
   "adolphAlign.signal_num5": 80, // 变量: 行首到 ";" 的距离
 
   "adolphAlign.param_num1": 4,  // 参数: 行首到 parameter/localparam 左侧的距离
@@ -56,15 +58,15 @@
   "adolphAlign.assign_num2": 12, // assign: 行首到 变量左侧的距离
   "adolphAlign.assign_num3": 30, // assign: 行首到 “=”的距离
 
-  "adolphAlign.inst_num1": 8,  // 实例化: " . " 左侧与行首的距离
-  "adolphAlign.inst_num2": 40, // 实例化: 信号 " . "到“（”的距离
-  "adolphAlign.inst_num3": 80, // 实例化: 信号“（”到“）”的距离
+  "adolphAlign.inst_num1": 8,  // 实例化: 行首到 " . " 左侧与行首的距离
+  "adolphAlign.inst_num2": 40, // 实例化: 行首到 “（”的距离
+  "adolphAlign.inst_num3": 80, // 实例化: 行首到 “）”的距离
 
   "adolphAlign.array_num1":  4,  // 数组: 行首到 reg/wire 左侧的距离
   "adolphAlign.array_num2": 16,  // 数组: 行首到 signed/unsigned 左侧的距离
-  "adolphAlign.array_num3": 25,  // 数组: 行首到第一个位宽左侧的距离
-  "adolphAlign.array_num4": 50,  // 数组: 行首到变量左侧的距离
-  "adolphAlign.array_num5": 60,  // 数组: 行首到第二个位宽左侧的距离
+  "adolphAlign.array_num3": 25,  // 数组: 行首到 第一个位宽左侧的距离
+  "adolphAlign.array_num4": 50,  // 数组: 行首到 变量左侧的距离
+  "adolphAlign.array_num5": 60,  // 数组: 行首到 第二个位宽左侧的距离
   "adolphAlign.array_num6": 80,  // 数组: 行首到 ";" 的距离
 
   "adolphAlign.upbound": 2, // 位宽 [] 内的上限空格数

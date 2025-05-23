@@ -3,7 +3,7 @@
   "displayName": "Adolph-Align",
   "description": "code align",
   "publisher": "AdolphWang",
-  "version": "1.0.5",
+  "version": "1.1.0",
   "engines": {
     "vscode": "^1.50.0"
   },
@@ -43,7 +43,7 @@
         "title": "Refresh Verilog File Tree"
       },
       {
-        "command": "verilogFileTree.showInFolder",
+        "command": "verilogTree.openContainingFolder",
         "title": "在文件夹中显示"
       }
     ],
@@ -190,7 +190,7 @@
         "adolphAlign.inst_num3": {
           "type": "number",
           "default": 80,
-          "description": "实例化: 信号“（”到“）”的距离"
+          "description": "实例化: 信号 , 到“）”的距离"
         },
         "adolphAlign.array_num1": {
           "type": "number",
@@ -286,8 +286,9 @@
       ],
       "view/item/context": [
         {
-          "command": "verilogFileTree.showInFolder",
-          "when": "view == verilogFileTree"
+          "command": "verilogTree.openContainingFolder",
+          "when": "viewItem == normalModule",
+          "group": "navigation"
         }
       ]
     }
