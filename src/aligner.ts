@@ -518,9 +518,9 @@ function alignTwoDimArrayDeclaration(line: string, config: vscode.WorkspaceConfi
   currentPos += endSymbolSpaces + endSymbol.length;
 
   // 7. 对齐注释 (紧跟在分号后面)
-   if (comment) {
-      parts.push(' ' + comment); // 注释前加一个空格
-   }
+  if (comment) {
+    parts.push(' ' + comment); // 注释前加一个空格
+  }
 
 
   return parts.join('');
