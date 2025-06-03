@@ -1,5 +1,6 @@
 import * as vscode from 'vscode';
 import * as path from 'path';
+import * as fs from 'fs';
 import { alignVerilogCode } from './aligner'; // 导入端口/常量/变量声明对齐功能
 import { registerAlignmentCommand } from './alignParentheses'; // 导入括号对齐功能
 import { VerilogTreeDataProvider } from './VerilogTreeDataProvider'; // 导入文件树功能
@@ -20,10 +21,41 @@ export function activate(context: vscode.ExtensionContext) {
     // console.log('配置已加载:', config);
 
     // 获取选中的文本
-    const text = editor.document.getText(editor.selection);
+    const text = editor.document.getText(editor.selection); // 原始编辑器文本
 
-    // 对齐代码
-    const alignedText = alignVerilogCode(text, config);
+    // 生成AST文件
+    const verilogPath = editor.document.uri.fsPath;
+    const astPath = path.join(path.dirname(verilogPath), 'Verilog_AST.json');
+    // const jarPath = path.join(__dirname, '../resources/jar/verilog-parser-1.0.0.jar');
+    const jarPath = path.join(__dirname, '../../antlr4_verilog/target/verilog-parser-1.0.0-shaded.jar');
+    
+    let useASTMode = false; // 默认不使用AST模式
+    try {
+      // 调用Java解析器生成AST
+      console.log(`[Extension] 尝试生成AST: java -jar "${jarPath}" "${verilogPath}" "${astPath}"`);
+      child_process.execSync(`java -jar "${jarPath}" "${verilogPath}" "${astPath}"`);
+      if (fs.existsSync(astPath)) {
+        useASTMode = true;
+        console.log(`[Extension] AST文件生成成功: ${astPath}`);
+      } else {
+        console.warn(`[Extension] AST文件未生成或不存在: ${astPath}`);
+      }
+    } catch (error: any) { // 捕获错误时指定类型为 any
+      console.error('[Extension] AST生成失败:', error.message || error);
+      vscode.window.showErrorMessage('AST生成失败，将使用常规对齐模式');
+      useASTMode = false;
+    }
+
+    let alignedText: string;
+    if (useASTMode) {
+      console.log('[Extension] 使用AST对齐模式');
+      // <--- 关键修改：传递原始文本 (text), config, true, 和 astPath
+      alignedText = alignVerilogCode(text, config, true, astPath); 
+    } else {
+      console.log('[Extension] 使用常规对齐模式 (正则表达式)');
+      // <--- 关键修改：传递原始文本 (text), config, false, 和 undefined (或 null) 作为 astFilePath
+      alignedText = alignVerilogCode(text, config, false, undefined); 
+    }
 
     // 替换选中的文本
     editor.edit(editBuilder => {
@@ -39,7 +71,8 @@ export function activate(context: vscode.ExtensionContext) {
   vscode.workspace.onDidChangeConfiguration((event) => {
     if (event.affectsConfiguration('adolphAlign')) {
       console.log('配置已修改，重新执行对齐逻辑');
-      vscode.commands.executeCommand('adolph-align.align');
+      // 重新执行对齐命令，而不是直接调用 alignVerilogCode，以确保AST生成逻辑也重新运行
+      vscode.commands.executeCommand('adolph-align.align'); 
     }
   });
 
@@ -84,9 +117,6 @@ export function activate(context: vscode.ExtensionContext) {
       }
   }));
 
-  // 将命令添加到订阅中
-  // context.subscriptions.push(refreshCommand, showInFolderCommand);
-
   // 注册 DefinitionProvider
   const definitionProvider = new VerilogDefinitionProvider();
   context.subscriptions.push(
@@ -97,4 +127,6 @@ export function activate(context: vscode.ExtensionContext) {
   vscode.commands.executeCommand('verilogFileTree.refresh');
 }
 
-export function deactivate() {}
+export function deactivate() {
+  console.log('ADOLPH ALIGN 插件已停用');
+}
