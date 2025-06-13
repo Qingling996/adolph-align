@@ -1,7 +1,8 @@
 import * as vscode from 'vscode';
 import * as path from 'path';
 import * as fs from 'fs';
-import { alignVerilogCode } from './aligner'; // 导入端口/常量/变量声明对齐功能
+
+import { alignVerilogCodeDispatcher } from './aligner'; // 导入端口/常量/变量声明对齐功能
 import { registerAlignmentCommand } from './alignParentheses'; // 导入括号对齐功能
 import { VerilogTreeDataProvider } from './VerilogTreeDataProvider'; // 导入文件树功能
 import * as child_process from 'child_process';
@@ -16,53 +17,74 @@ export function activate(context: vscode.ExtensionContext) {
     const editor = vscode.window.activeTextEditor;
     if (!editor) return;
 
-    // 获取配置
     const config = vscode.workspace.getConfiguration('adolphAlign');
-    // console.log('配置已加载:', config);
-
-    // 获取选中的文本
-    const text = editor.document.getText(editor.selection); // 原始编辑器文本
+    const text = editor.document.getText(editor.selection);
 
     // 生成AST文件
     const verilogPath = editor.document.uri.fsPath;
-    const astPath = path.join(path.dirname(verilogPath), 'Verilog_AST.json');
     // const jarPath = path.join(__dirname, '../resources/jar/verilog-parser-1.0.0.jar');
-    const jarPath = path.join(__dirname, '../../antlr4_verilog/target/verilog-parser-1.0.0-shaded.jar');
+    const jarPath = context.asAbsolutePath(path.join('resources', 'jar', 'verilog-parser-1.0.0-exe.jar'));
+
+    const tempDir = context.globalStorageUri.fsPath;
+    if (!fs.existsSync(tempDir)) {
+        fs.mkdirSync(tempDir, { recursive: true });
+    }
+
+    const astPath = path.join(path.dirname(verilogPath), 'Verilog_AST.json');
+
+    // 【最佳实践】使用前清理临时AST文件
+    if (fs.existsSync(astPath)) {
+        fs.unlinkSync(astPath);
+    }
     
     let useASTMode = false; // 默认不使用AST模式
-    try {
-      // 调用Java解析器生成AST
-      console.log(`[Extension] 尝试生成AST: java -jar "${jarPath}" "${verilogPath}" "${astPath}"`);
-      child_process.execSync(`java -jar "${jarPath}" "${verilogPath}" "${astPath}"`);
-      if (fs.existsSync(astPath)) {
-        useASTMode = true;
-        console.log(`[Extension] AST文件生成成功: ${astPath}`);
-      } else {
-        console.warn(`[Extension] AST文件未生成或不存在: ${astPath}`);
-      }
-    } catch (error: any) { // 捕获错误时指定类型为 any
-      console.error('[Extension] AST生成失败:', error.message || error);
-      vscode.window.showErrorMessage('AST生成失败，将使用常规对齐模式');
-      useASTMode = false;
-    }
 
-    let alignedText: string;
-    if (useASTMode) {
-      console.log('[Extension] 使用AST对齐模式');
-      // <--- 关键修改：传递原始文本 (text), config, true, 和 astPath
-      alignedText = alignVerilogCode(text, config, true, astPath); 
+    // 检查JAR文件是否存在，给用户更明确的提示
+    if (!fs.existsSync(jarPath)) {
+        console.error(`[Extension] JAR file not found at: ${jarPath}`);
+        vscode.window.showErrorMessage('解析器核心文件(verilog-parser-1.0.0-exe.jar)丢失，请重新安装插件。');
     } else {
-      console.log('[Extension] 使用常规对齐模式 (正则表达式)');
-      // <--- 关键修改：传递原始文本 (text), config, false, 和 undefined (或 null) 作为 astFilePath
-      alignedText = alignVerilogCode(text, config, false, undefined); 
+        try {
+            const verilogPath = editor.document.uri.fsPath;
+            console.log(`[Extension] Generating AST: java -jar "${jarPath}" "${verilogPath}" "${astPath}"`);
+            child_process.execSync(`java -jar "${jarPath}" "${verilogPath}" "${astPath}"`, { stdio: 'pipe' }); // 使用 stdio: 'pipe' 抑制Java输出到VS Code控制台
+
+            if (fs.existsSync(astPath)) {
+                useASTMode = true;
+                console.log(`[Extension] AST file generated successfully: ${astPath}`);
+            } else {
+                console.warn(`[Extension] AST file was not generated: ${astPath}`);
+            }
+        } catch (error: any) {
+            console.error('[Extension] AST generation failed:', error.message || error);
+            // 【用户体验】给出更具体的错误提示
+            if (error.message.includes('java: not found') || error.message.includes('\'java\' is not recognized')) {
+                vscode.window.showErrorMessage('AST生成失败：未找到Java运行环境。请安装Java并配置好环境变量。将使用正则表达式模式进行对齐。');
+            } else {
+                vscode.window.showErrorMessage('AST生成失败，可能是代码存在语法错误。将使用正则表达式模式进行对齐。');
+            }
+            useASTMode = false;
+        }
     }
 
+    // 【修改】调用分发器
+    const alignedText = alignVerilogCodeDispatcher(text, config, useASTMode, astPath);
+
+    editor.edit(editBuilder => {
+      editBuilder.replace(editor.selection, alignedText);
+    });
+
+    // // 【最佳实践】使用完毕后清理临时AST文件
+    // if (fs.existsSync(astPath)) {
+    //     fs.unlinkSync(astPath);
+    // }
+    
     // 替换选中的文本
     editor.edit(editBuilder => {
       editBuilder.replace(editor.selection, alignedText);
     });
 
-    console.log('Verilog align 已执行');
+    console.log('Verilog align executed');
   });
 
   context.subscriptions.push(alignCommand);
