@@ -6,7 +6,7 @@ import * as fs from 'fs';
 // =========================================================================
 interface CommentInfo {
   text: string;
-  type: 'line' | 'block';
+  type: 'line' | 'block' | 'comment'; // Handle parser variations
   originalTokenIndex: number;
 }
 
@@ -56,6 +56,8 @@ export function alignVerilogCodeDispatcher(
 // =========================================================================
 // AST 对齐核心逻辑 - 函数定义区
 // =========================================================================
+
+const indentChar = '    ';
 
 function alignFromAST(astRootNode: ASTNode, config: vscode.WorkspaceConfiguration): string {
     console.log(`[Aligner-AST] Starting alignment for root node: ${astRootNode.name}`);
@@ -126,9 +128,10 @@ function formatASTNode(node: ASTNode, config: vscode.WorkspaceConfiguration, ind
       return '';
   }
 
-  const baseIndent = '    '.repeat(indentLevel);
+  const baseIndent = indentChar.repeat(indentLevel);
   let result = '';
 
+  // Process leading comments that are not attached to any specific child yet
   result += formatLeadingComments(node.leadingComments, baseIndent, context);
 
   let nodeContent = '';
@@ -149,6 +152,9 @@ function formatASTNode(node: ASTNode, config: vscode.WorkspaceConfiguration, ind
         nodeContent = formatAlwaysConstruct(node, config, indentLevel, context);
         break;
     default:
+        // For unhandled nodes, at least reconstruct their text if possible
+        // This prevents parts of the code from disappearing if a node type is missed.
+        // nodeContent = baseIndent + reconstructExpressionText(node) + '\n';
         break;
   }
   result += nodeContent;
@@ -158,7 +164,7 @@ function formatASTNode(node: ASTNode, config: vscode.WorkspaceConfiguration, ind
 }
 
 function formatModuleDeclaration(node: ASTNode, config: vscode.WorkspaceConfiguration, indentLevel: number, context: FormattingContext): string {
-  const indent = '    '.repeat(indentLevel);
+  const indent = indentChar.repeat(indentLevel);
   let content = indent + getRawNodeText(findChild(node, 'MODULE'));
   
   content += ' ' + getRawNodeText(findChild(node, 'IDENTIFIER'));
@@ -189,13 +195,13 @@ function formatModuleDeclaration(node: ASTNode, config: vscode.WorkspaceConfigur
 }
 
 function formatParameterPortList(node: ASTNode, config: vscode.WorkspaceConfiguration, indentLevel: number, context: FormattingContext): string {
-    const indent = '    '.repeat(indentLevel);
+    const indent = indentChar.repeat(indentLevel);
     let content = getRawNodeText(findChild(node, 'HASH')) + getRawNodeText(findChild(node, 'LPAREN')) + '\n';
 
     const assignments = findAllChildren(node, 'param_assignment');
     
     assignments.forEach((p, index) => {
-        const lineIndent = '    '.repeat(indentLevel + 1);
+        const lineIndent = indentChar.repeat(indentLevel + 1);
         let line = '';
         
         line += formatLeadingComments(p.leadingComments, lineIndent, context);
@@ -229,30 +235,62 @@ function formatParameterPortList(node: ASTNode, config: vscode.WorkspaceConfigur
     return content;
 }
 
+/**
+ * [REWRITTEN] Formats the entire port list with robust comma and comment handling.
+ */
 function formatPortList(node: ASTNode, config: vscode.WorkspaceConfiguration, indentLevel: number, context: FormattingContext): string {
-    const indent = '    '.repeat(indentLevel);
+    const indent = indentChar.repeat(indentLevel);
+    const portIndentLevel = indentLevel + 1;
+    const portIndentStr = indentChar.repeat(portIndentLevel);
+
     let content = getRawNodeText(findChild(node, 'LPAREN')) + '\n';
-    
     const portDeclarations = findAllChildren(node, 'port_declaration');
-    
+
     portDeclarations.forEach((port, index) => {
-        const lineIndent = '    '.repeat(indentLevel + 1);
-        let line = '';
-
-        line += formatLeadingComments(port.leadingComments, lineIndent, context);
-        
         const actualDecl = port.children?.[0];
-        if (actualDecl) {
-            line += formatLeadingComments(actualDecl.leadingComments, lineIndent, context);
-            line += formatPortDeclaration(actualDecl, config, indentLevel + 1, context);
+        if (!actualDecl) return;
 
-            if (index < portDeclarations.length - 1) {
-                line += ',';
+        // --- Step 1: Handle leading block comments for the current port ---
+        const allLeadingComments = (port.leadingComments || []).concat(actualDecl.leadingComments || []);
+        allLeadingComments.forEach(comment => {
+            if ((comment.type === 'block' || comment.text.startsWith('/*')) && !context.processedCommentIndices.has(comment.originalTokenIndex)) {
+                content += portIndentStr + comment.text + '\n';
+                context.processedCommentIndices.add(comment.originalTokenIndex);
             }
+        });
+        
+        // --- Step 2: Format the core port declaration line ---
+        let line = formatPortDeclaration(actualDecl, config, portIndentLevel, context);
 
-            line += formatTrailingComments(actualDecl, context);
-            line += formatTrailingComments(port, context);
+        // --- Step 3: Add the comma IMMEDIATELY if it's not the last port ---
+        if (index < portDeclarations.length - 1) {
+            line += ',';
         }
+        
+        // --- Step 4: Append ALL relevant trailing comments ---
+        // True trailing comments for the current port
+        const trueTrailingComments = (actualDecl.trailingComments || []).concat(port.trailingComments || []);
+        trueTrailingComments.forEach(comment => {
+            if (!context.processedCommentIndices.has(comment.originalTokenIndex)) {
+                line += ' ' + comment.text;
+                context.processedCommentIndices.add(comment.originalTokenIndex);
+            }
+        });
+
+        // "Misplaced" leading line comments from the NEXT port, which belong to THIS line
+        if (index + 1 < portDeclarations.length) {
+            const nextPort = portDeclarations[index + 1];
+            const nextActualDecl = nextPort.children?.[0];
+            const nextLeadingComments = (nextPort.leadingComments || []).concat(nextActualDecl?.leadingComments || []);
+            
+            nextLeadingComments.forEach(comment => {
+                if ((comment.type === 'line' || comment.type === 'comment' || comment.text.startsWith('//')) && !context.processedCommentIndices.has(comment.originalTokenIndex)) {
+                     line += ' ' + comment.text;
+                     context.processedCommentIndices.add(comment.originalTokenIndex);
+                }
+            });
+        }
+        
         content += line + '\n';
     });
 
@@ -260,8 +298,9 @@ function formatPortList(node: ASTNode, config: vscode.WorkspaceConfiguration, in
     return content;
 }
 
+
 function formatPortDeclaration(node: ASTNode, config: vscode.WorkspaceConfiguration, indentLevel: number, context: FormattingContext): string {
-    const indentStr = '    '.repeat(indentLevel);
+    const indentStr = indentChar.repeat(indentLevel);
     let line = indentStr;
     let currentAbsoluteColumn = indentStr.length;
 
@@ -325,45 +364,46 @@ function formatBitWidthDeclaration(rangeNode: ASTNode, config: vscode.WorkspaceC
 
 
 // =========================================================================
-// [ULTIMATE REWRITE - FINAL VERSION] Statement Formatting Logic
+// Statement Formatting Logic (With K&R Style and Corrected Indentation)
 // =========================================================================
+interface StyleOptions {
+    isInlineBegin: boolean;
+}
 
-/**
- * Formats an `always_construct` node.
- */
 function formatAlwaysConstruct(node: ASTNode, config: vscode.WorkspaceConfiguration, indentLevel: number, context: FormattingContext): string {
-    const indentStr = '    '.repeat(indentLevel);
+    const indentStr = indentChar.repeat(indentLevel);
 
     const eventControl = findChild(node, 'event_control');
     const eventExpression = eventControl ? findChild(eventControl, 'event_expression') : undefined;
     const sensitivityList = eventExpression ? reconstructExpressionText(eventExpression) : '';
     
-    let content = indentStr + 'always @(' + sensitivityList + ')\n';
+    let content = indentStr + 'always @(' + sensitivityList + ')';
 
     const statement = findChild(node, 'statement_or_null');
     if (statement) {
-        content += formatStatementOrNullNode(statement, config, indentLevel, context);
+        const isBeginBlock = statement.children?.[0]?.children?.[0]?.name === 'BEGIN';
+        if (isBeginBlock) {
+            content += ' ';
+        } else {
+            content += '\n';
+        }
+        content += formatStatementOrNullNode(statement, config, indentLevel + 1, context, { isInlineBegin: isBeginBlock });
     }
     return content;
 }
 
-/**
- * [REWRITTEN] Formats a `statement_or_null` node.
- * This is a WRAPPER node. Its only job is to unwrap its child and pass it to the correct formatter.
- */
-function formatStatementOrNullNode(node: ASTNode, config: vscode.WorkspaceConfiguration, indentLevel: number, context: FormattingContext): string {
-    const indentStr = '    '.repeat(indentLevel);
+function formatStatementOrNullNode(node: ASTNode, config: vscode.WorkspaceConfiguration, indentLevel: number, context: FormattingContext, style: StyleOptions): string {
+    const indentStr = indentChar.repeat(indentLevel);
     let content = '';
     content += formatLeadingComments(node.leadingComments, indentStr, context);
     
-    const statementNode = node.children?.[0]; // This is the actual `statement` node inside
+    const statementNode = node.children?.[0]; 
     
     if (statementNode) {
         if (statementNode.name === 'SEMI') {
             content += indentStr + ';';
         } else {
-            // Pass the actual statement to the main statement formatter
-            content += formatStatementNode(statementNode, config, indentLevel, context);
+            content += formatStatementNode(statementNode, config, indentLevel, context, style);
         }
     }
     
@@ -371,12 +411,8 @@ function formatStatementOrNullNode(node: ASTNode, config: vscode.WorkspaceConfig
     return content;
 }
 
-/**
- * [REWRITTEN] Formats a `statement` node.
- * This is the CORE formatter that handles the actual logic (begin, if, assignment).
- */
-function formatStatementNode(node: ASTNode, config: vscode.WorkspaceConfiguration, indentLevel: number, context: FormattingContext): string {
-    const indentStr = '    '.repeat(indentLevel);
+function formatStatementNode(node: ASTNode, config: vscode.WorkspaceConfiguration, indentLevel: number, context: FormattingContext, style: StyleOptions): string {
+    const indentStr = indentChar.repeat(indentLevel);
     const firstChild = node.children?.[0]; 
     if (!firstChild) return '';
 
@@ -385,36 +421,47 @@ function formatStatementNode(node: ASTNode, config: vscode.WorkspaceConfiguratio
 
     switch (firstChild.name) {
         case 'BEGIN': {
-            content += indentStr + 'begin\n';
-            // Find all direct `statement` children within the begin-end block.
-            const statementsInBlock = findAllChildren(node, 'statement');
+            if (style.isInlineBegin) {
+                content += 'begin\n';
+            } else {
+                content += indentStr + 'begin\n';
+            }
             
-            // [CRITICAL FIX] Recursively call the CORRECT formatter for each statement.
+            const statementsInBlock = findAllChildren(node, 'statement');
             content += statementsInBlock.map(s => 
-                formatStatementNode(s, config, indentLevel + 1, context)
+                formatStatementNode(s, config, indentLevel, context, { isInlineBegin: false })
             ).join('\n');
 
-            content += '\n' + indentStr + 'end';
+            content += '\n' + indentChar.repeat(indentLevel - 1) + 'end';
             content += formatTrailingComments(findChild(node, 'END'), context);
             break;
         }
         case 'IF': {
-            const ifExpr = findChild(node, 'expression');
-            content += indentStr + 'if (' + reconstructExpressionText(ifExpr) + ')\n';
+            content += indentStr + 'if (' + reconstructExpressionText(findChild(node, 'expression')) + ')';
             
             const statementOrNullNodes = findAllChildren(node, 'statement_or_null');
             const thenClause = statementOrNullNodes[0];
             const elseClause = findChild(node, 'ELSE') ? statementOrNullNodes[1] : undefined;
             
             if (thenClause) {
-                // `then` clauses are `statement_or_null`, so call the correct wrapper formatter.
-                content += formatStatementOrNullNode(thenClause, config, indentLevel + 1, context);
+                const thenIsBegin = thenClause.children?.[0]?.children?.[0]?.name === 'BEGIN';
+                if (thenIsBegin) {
+                    content += ' ';
+                } else {
+                    content += '\n';
+                }
+                content += formatStatementOrNullNode(thenClause, config, indentLevel + 1, context, { isInlineBegin: thenIsBegin });
             }
             
             if (elseClause) {
-                content += '\n' + indentStr + 'else\n';
-                // `else` clauses are also `statement_or_null`.
-                content += formatStatementOrNullNode(elseClause, config, indentLevel + 1, context);
+                content += '\n' + indentStr + 'else';
+                const elseIsBegin = elseClause.children?.[0]?.children?.[0]?.name === 'BEGIN';
+                if (elseIsBegin) {
+                    content += ' ';
+                } else {
+                    content += '\n';
+                }
+                content += formatStatementOrNullNode(elseClause, config, indentLevel + 1, context, { isInlineBegin: elseIsBegin });
             }
             break;
         }
@@ -425,12 +472,10 @@ function formatStatementNode(node: ASTNode, config: vscode.WorkspaceConfiguratio
             const expression = reconstructExpressionText(findChild(assignNode, 'expression'));
             
             content += indentStr + lvalue + ' ' + operator + ' ' + expression + ';';
-            // Trailing comment is on the parent 'statement' (which is 'node' here).
             content += formatTrailingComments(node, context);
             break;
         }
         default:
-            // Fallback for any other simple statement type.
             content += indentStr + reconstructExpressionText(node) + ';';
             content += formatTrailingComments(node, context);
             break;
