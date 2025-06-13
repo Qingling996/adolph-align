@@ -131,7 +131,6 @@ function formatASTNode(node: ASTNode, config: vscode.WorkspaceConfiguration, ind
   const baseIndent = indentChar.repeat(indentLevel);
   let result = '';
 
-  // Process leading comments that are not attached to any specific child yet
   result += formatLeadingComments(node.leadingComments, baseIndent, context);
 
   let nodeContent = '';
@@ -152,9 +151,6 @@ function formatASTNode(node: ASTNode, config: vscode.WorkspaceConfiguration, ind
         nodeContent = formatAlwaysConstruct(node, config, indentLevel, context);
         break;
     default:
-        // For unhandled nodes, at least reconstruct their text if possible
-        // This prevents parts of the code from disappearing if a node type is missed.
-        // nodeContent = baseIndent + reconstructExpressionText(node) + '\n';
         break;
   }
   result += nodeContent;
@@ -236,7 +232,7 @@ function formatParameterPortList(node: ASTNode, config: vscode.WorkspaceConfigur
 }
 
 /**
- * [REWRITTEN] Formats the entire port list with robust comma and comment handling.
+ * [REWRITTEN - FINAL VERSION] Formats the entire port list with robust and correct comment/comma handling.
  */
 function formatPortList(node: ASTNode, config: vscode.WorkspaceConfiguration, indentLevel: number, context: FormattingContext): string {
     const indent = indentChar.repeat(indentLevel);
@@ -245,59 +241,71 @@ function formatPortList(node: ASTNode, config: vscode.WorkspaceConfiguration, in
 
     let content = getRawNodeText(findChild(node, 'LPAREN')) + '\n';
     const portDeclarations = findAllChildren(node, 'port_declaration');
+    const commentAlignColumn = config.get<number>('portCommentAlignColumn', 80);
 
     portDeclarations.forEach((port, index) => {
         const actualDecl = port.children?.[0];
         if (!actualDecl) return;
 
-        // --- Step 1: Handle leading block comments for the current port ---
+        // --- Step 1: Handle PRE-line Block Comments for the CURRENT port ---
         const allLeadingComments = (port.leadingComments || []).concat(actualDecl.leadingComments || []);
         allLeadingComments.forEach(comment => {
-            if ((comment.type === 'block' || comment.text.startsWith('/*')) && !context.processedCommentIndices.has(comment.originalTokenIndex)) {
+            if (comment.text.startsWith('/*') && !context.processedCommentIndices.has(comment.originalTokenIndex)) {
                 content += portIndentStr + comment.text + '\n';
                 context.processedCommentIndices.add(comment.originalTokenIndex);
             }
         });
         
         // --- Step 2: Format the core port declaration line ---
-        let line = formatPortDeclaration(actualDecl, config, portIndentLevel, context);
+        let coreLine = formatPortDeclaration(actualDecl, config, portIndentLevel, context);
 
-        // --- Step 3: Add the comma IMMEDIATELY if it's not the last port ---
-        if (index < portDeclarations.length - 1) {
-            line += ',';
-        }
+        // --- Step 3: Determine the comma ---
+        const comma = (index < portDeclarations.length - 1) ? ',' : ' ';
         
-        // --- Step 4: Append ALL relevant trailing comments ---
-        // True trailing comments for the current port
+        // --- Step 4: Collect all comments that belong at the end of THIS line ---
+        let endOfLineComment = '';
         const trueTrailingComments = (actualDecl.trailingComments || []).concat(port.trailingComments || []);
         trueTrailingComments.forEach(comment => {
             if (!context.processedCommentIndices.has(comment.originalTokenIndex)) {
-                line += ' ' + comment.text;
+                endOfLineComment += ' ' + comment.text;
                 context.processedCommentIndices.add(comment.originalTokenIndex);
             }
         });
 
-        // "Misplaced" leading line comments from the NEXT port, which belong to THIS line
         if (index + 1 < portDeclarations.length) {
             const nextPort = portDeclarations[index + 1];
             const nextActualDecl = nextPort.children?.[0];
             const nextLeadingComments = (nextPort.leadingComments || []).concat(nextActualDecl?.leadingComments || []);
             
             nextLeadingComments.forEach(comment => {
-                if ((comment.type === 'line' || comment.type === 'comment' || comment.text.startsWith('//')) && !context.processedCommentIndices.has(comment.originalTokenIndex)) {
-                     line += ' ' + comment.text;
+                if (comment.text.startsWith('//') && !context.processedCommentIndices.has(comment.originalTokenIndex)) {
+                     endOfLineComment += ' ' + comment.text;
                      context.processedCommentIndices.add(comment.originalTokenIndex);
                 }
             });
         }
+        endOfLineComment = endOfLineComment.trim();
+
+        // --- Step 5: Assemble and align the final line ---
+        let finalLine = coreLine;
+        if (comma || endOfLineComment) {
+            const endPart = comma + endOfLineComment;
+            const currentLength = finalLine.length;
+            
+            if (currentLength < commentAlignColumn) {
+                const spacesNeeded = commentAlignColumn - currentLength;
+                finalLine += ' '.repeat(spacesNeeded) + endPart;
+            } else {
+                finalLine += ' ' + endPart;
+            }
+        }
         
-        content += line + '\n';
+        content += finalLine + '\n';
     });
 
     content += indent + getRawNodeText(findChild(node, 'RPAREN'));
     return content;
 }
-
 
 function formatPortDeclaration(node: ASTNode, config: vscode.WorkspaceConfiguration, indentLevel: number, context: FormattingContext): string {
     const indentStr = indentChar.repeat(indentLevel);
