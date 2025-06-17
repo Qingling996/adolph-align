@@ -22,6 +22,8 @@ interface ASTNode {
 
 interface FormattingContext {
     processedCommentIndices: Set<number>;
+    originalText: string;
+    config: vscode.WorkspaceConfiguration;
 }
 
 // =========================================================================
@@ -60,12 +62,14 @@ const indentChar = '    ';
 
 function alignFromAST(astRootNode: ASTNode, config: vscode.WorkspaceConfiguration, originalText: string): string {
     const context: FormattingContext = {
-        processedCommentIndices: new Set<number>()
+        processedCommentIndices: new Set<number>(),
+        originalText: originalText,
+        config: config
     };
     return formatASTNode(astRootNode, config, 0, context).trim() + '\n';
 }
 
-function findChild(node: ASTNode, name: string): ASTNode | undefined {
+function findChild(node: ASTNode | undefined, name: string): ASTNode | undefined {
     if (!node || !node.children) return undefined;
     return node.children.find(child => child.name === name);
 }
@@ -80,11 +84,75 @@ function getRawNodeText(node: ASTNode | undefined): string {
   return node.value;
 }
 
-function reconstructExpressionText(node: ASTNode | undefined): string {
+function extractOriginalText(node: ASTNode, fullText: string): string {
+    if (!node.start || !node.end) {
+        return '';
+    }
+    const lines = fullText.split('\n');
+    const startLine = node.start.line - 1;
+    const endLine = node.end.line - 1;
+    const startCol = node.start.column;
+    const endCol = node.end.column;
+
+    if (startLine < 0 || endLine >= lines.length || startLine > endLine) {
+        return '';
+    }
+
+    if (startLine === endLine) {
+        return lines[startLine].substring(startCol, endCol);
+    }
+
+    let extracted = '';
+    extracted += lines[startLine].substring(startCol);
+    for (let i = startLine + 1; i < endLine; i++) {
+        extracted += '\n' + lines[i];
+    }
+    extracted += '\n' + lines[endLine].substring(0, endCol);
+
+    return extracted.trim();
+}
+
+function reconstructExpressionText(node: ASTNode | undefined, context: FormattingContext): string {
     if (!node) return '';
+
+    if (node.name === 'range_expression') {
+        const children = node.children || [];
+        if (
+            children.length === 5 &&
+            children[0].name === 'LBRACK' &&
+            children[2].name === 'COLON' &&
+            children[4].name === 'RBRACK'
+        ) {
+             const bitwidthString = `[${reconstructExpressionText(children[1], context)}:${reconstructExpressionText(children[3], context)}]`;
+             return alignBitWidthDeclarationRegex(bitwidthString, context.config);
+        }
+    }
+    
     if (node.value !== undefined) return node.value;
-    if (node.children) {
-        return node.children.map(reconstructExpressionText).join(' ');
+
+    if (node.children && node.children.length > 0) {
+        let result = '';
+        const noSpaceAfter = new Set(['[', '{', '.', '(', '`']);
+        const noSpaceBefore = new Set(['[', ']', '{', '}', '.', '(', ')', ',', ';', ':']);
+        
+        for (const child of node.children) {
+            const currentToken = reconstructExpressionText(child, context);
+            if (!currentToken) continue;
+
+            if (result.length > 0) {
+                const firstCharOfCurrent = currentToken.charAt(0);
+                const lastCharOfResult = result.charAt(result.length - 1);
+                
+                if (
+                    !noSpaceAfter.has(lastCharOfResult) &&
+                    !noSpaceBefore.has(firstCharOfCurrent)
+                ) {
+                    result += ' ';
+                }
+            }
+            result += currentToken;
+        }
+        return result;
     }
     return '';
 }
@@ -161,8 +229,6 @@ function formatASTNode(node: ASTNode, config: vscode.WorkspaceConfiguration, ind
                 decl = firstChild.children?.[0];
             }
             
-            // **FIX for 1-2**: Moved leading comment processing inside each specific case
-            // to target the node that actually holds the comment.
             if (decl && (decl.name === 'parameter_declaration' || decl.name === 'localparam_declaration')) {
                 const leadingComments = formatLeadingComments(decl.leadingComments, baseIndent, context);
                 let codeLine = formatLocalParameterDeclaration(decl, config, indentLevel, context);
@@ -278,7 +344,7 @@ function formatParameterPortList(node: ASTNode, config: vscode.WorkspaceConfigur
 
         const keyword = getRawNodeText(findChild(info.node, 'PARAMETER'));
         const identifier = getRawNodeText(findChild(info.node, 'IDENTIFIER'));
-        const value = reconstructExpressionText(findChild(info.node, 'constant_expression'));
+        const value = reconstructExpressionText(findChild(info.node, 'constant_expression'), context);
 
         let currentLine = paramIndentStr + keyword;
         currentLine += ' '.repeat(Math.max(1, param_num2 - currentLine.length));
@@ -377,7 +443,7 @@ function formatPortDeclaration(node: ASTNode, config: vscode.WorkspaceConfigurat
 
     const regKeywordPart = getRawNodeText(findChild(declaration, 'REG')) || '';
     const signedUnsignedPart = getRawNodeText(findChild(declaration, 'SIGNED')) || '';
-    const widthPart = reconstructExpressionText(findChild(declaration, 'range_expression')) || '';
+    const widthPart = reconstructExpressionText(findChild(declaration, 'range_expression'), context) || '';
     const signalPart = getRawNodeText(findChild(declaration, 'IDENTIFIER'));
     
     const port_num2 = config.get<number>('port_num2', 16);
@@ -403,8 +469,8 @@ function formatLocalParameterDeclaration(node: ASTNode, config: vscode.Workspace
     const localparam_num3 = config.get<number>('localparam_num3', 50);
 
     const keyword = getRawNodeText(findChild(node, 'PARAMETER')) || getRawNodeText(findChild(node, 'LOCALPARAM')) || 'parameter';
-    const identifier = getRawNodeText(findChild(node, 'IDENTIFIER'));
-    const value = reconstructExpressionText(findChild(node, 'constant_expression'));
+    const identifier = getRawNodeText(findChild(findChild(node, 'list_of_identifiers'), 'IDENTIFIER'));
+    const value = reconstructExpressionText(findChild(node, 'constant_expression'), context);
 
     let currentLine = indentStr + keyword;
     currentLine += ' '.repeat(Math.max(1, localparam_num2 - currentLine.length));
@@ -424,10 +490,11 @@ function formatSignalsDeclaration(node: ASTNode, config: vscode.WorkspaceConfigu
     if (decl.name === 'reg_declaration') type = 'reg';
     else if (decl.name === 'wire_declaration') type = 'wire';
     else if (decl.name === 'integer_declaration') type = 'integer';
+    else if (decl.name === 'real_declaration') type = 'real';
     
     const signed = getRawNodeText(findChild(decl, 'SIGNED')) || '';
-    const range = reconstructExpressionText(findChild(decl, 'range_expression')) || '';
-    const identifier = getRawNodeText(findChild(decl, 'IDENTIFIER')) || '';
+    const range = reconstructExpressionText(findChild(decl, 'range_expression'), context) || '';
+    const identifier = getRawNodeText(findChild(findChild(decl, 'list_of_identifiers'), 'IDENTIFIER'));
     
     const signal_num2 = config.get<number>('signal_num2', 16);
     const signal_num3 = config.get<number>('signal_num3', 25);
@@ -456,8 +523,8 @@ function formatContinuousAssign(node: ASTNode, config: vscode.WorkspaceConfigura
         return indentStr + 'assign ; // Error: Could not parse assignment structure from AST.';
     }
 
-    const lvalue = reconstructExpressionText(lvalueNode);
-    const expression = reconstructExpressionText(expressionNode);
+    const lvalue = reconstructExpressionText(lvalueNode, context);
+    const expression = reconstructExpressionText(expressionNode, context);
 
     let currentLine = indentStr + 'assign';
     currentLine += ' '.repeat(Math.max(1, assign_num2 - currentLine.length));
@@ -471,7 +538,7 @@ function formatContinuousAssign(node: ASTNode, config: vscode.WorkspaceConfigura
 function formatAlwaysConstruct(node: ASTNode, config: vscode.WorkspaceConfiguration, indentLevel: number, context: FormattingContext): string {
     const baseIndent = indentChar.repeat(indentLevel);
     
-    const sensitivityList = reconstructExpressionText(findChild(node, 'event_control'));
+    const sensitivityList = reconstructExpressionText(findChild(node, 'event_control'), context);
     let content = baseIndent + 'always ' + sensitivityList + ' begin\n';
 
     const body = findChild(node, 'statement_or_null');
@@ -494,29 +561,45 @@ function formatAlwaysConstruct(node: ASTNode, config: vscode.WorkspaceConfigurat
 
 interface StatementStyle { isKnrStyle?: boolean; isChainedIf?: boolean; }
 
+// **MODIFIED**: Added handler for `for` loops.
 function formatStatement(node: ASTNode, config: vscode.WorkspaceConfiguration, indentLevel: number, context: FormattingContext, style: StatementStyle = {}): string {
     let unwrappedItem = node;
     while (unwrappedItem.children?.length === 1 && ['statement_or_null', 'statement'].includes(unwrappedItem.name)) {
         unwrappedItem = unwrappedItem.children[0];
     }
 
+    const leadingComments = formatLeadingComments(unwrappedItem.leadingComments, indentChar.repeat(indentLevel), context);
     let result = '';
     
     if (findChild(unwrappedItem, 'IF')) {
         result = formatIfStatement(unwrappedItem, config, indentLevel, context, style);
     } else if (findChild(unwrappedItem, 'BEGIN')) {
         result = formatBeginEnd(unwrappedItem, config, indentLevel, context, style);
+    } else if (findChild(unwrappedItem, 'FOR')) { // **THE FIX**: Added handler for `for` loops
+        result = formatForStatement(unwrappedItem, config, indentLevel, context, style);
     } else {
         const itemIndent = indentChar.repeat(indentLevel);
         let coreContent = '';
+
         if (unwrappedItem.name === 'assignment_statement') {
-            const lvalue = reconstructExpressionText(findChild(unwrappedItem, 'variable_lvalue'));
+            const lvalueNode = findChild(unwrappedItem, 'variable_lvalue');
+            const expressionNode = findChild(unwrappedItem, 'expression');
+
+            const lvalue = lvalueNode ? reconstructExpressionText(lvalueNode, context) : '';
             const operator = getRawNodeText(findChild(unwrappedItem, 'LE_OP')) ? '<=' : '=';
-            const expression = reconstructExpressionText(findChild(unwrappedItem, 'expression'));
-            coreContent = itemIndent + lvalue + ' ' + operator + ' ' + expression + ' ;';
+            const expression = expressionNode ? reconstructExpressionText(expressionNode, context) : '';
+            
+            if (lvalue && expression) {
+                coreContent = itemIndent + lvalue + ' ' + operator + ' ' + expression + ' ;';
+            } else {
+                coreContent = itemIndent + extractOriginalText(unwrappedItem, context.originalText);
+                if (!coreContent.trim().endsWith(';')) coreContent += ';';
+            }
         } else {
-             let defaultContent = reconstructExpressionText(unwrappedItem);
-             if (!defaultContent.trim().endsWith(';')) defaultContent += ' ;';
+             let defaultContent = reconstructExpressionText(unwrappedItem, context);
+             if (defaultContent.trim() && !defaultContent.trim().endsWith(';')) {
+                defaultContent += ' ;';
+             }
              coreContent = itemIndent + defaultContent;
         }
         result = coreContent;
@@ -527,7 +610,7 @@ function formatStatement(node: ASTNode, config: vscode.WorkspaceConfiguration, i
       result += ' ' + trailingComment;
     }
 
-    return result;
+    return leadingComments + result;
 }
 
 function formatBeginEnd(node: ASTNode, config: vscode.WorkspaceConfiguration, indentLevel: number, context: FormattingContext, style: StatementStyle): string {
@@ -550,14 +633,21 @@ function formatIfStatement(node: ASTNode, config: vscode.WorkspaceConfiguration,
     const baseIndent = indentChar.repeat(indentLevel);
     const ifIndentStr = style.isChainedIf ? '' : baseIndent;
     
-    let content = ifIndentStr + 'if (' + reconstructExpressionText(findChild(node, 'expression')) + ') ';
-    
     const [thenClause, elseClauseCandidate] = findAllChildren(node, 'statement_or_null');
-    const elseToken = findChild(node, 'ELSE');
-    
-    if (thenClause) {
-        content += formatStatement(thenClause, config, indentLevel, context, { isKnrStyle: true });
+
+    if (!thenClause) {
+        return ifIndentStr + extractOriginalText(node, context.originalText);
     }
+    
+    const thenContent = formatStatement(thenClause, config, indentLevel, context, { isKnrStyle: true });
+    if (!thenContent.trim()) {
+        return ifIndentStr + extractOriginalText(node, context.originalText);
+    }
+
+    let content = ifIndentStr + 'if (' + reconstructExpressionText(findChild(node, 'expression'), context) + ') ';
+    content += thenContent;
+    
+    const elseToken = findChild(node, 'ELSE');
     
     if (elseToken && elseClauseCandidate) {
         content += '\n' + baseIndent + 'else';
@@ -575,6 +665,32 @@ function formatIfStatement(node: ASTNode, config: vscode.WorkspaceConfiguration,
     return content;
 }
 
+// **NEW**: Dedicated formatter for `for` loops.
+function formatForStatement(node: ASTNode, config: vscode.WorkspaceConfiguration, indentLevel: number, context: FormattingContext, style: StatementStyle = {}): string {
+    const baseIndent = indentChar.repeat(indentLevel);
+
+    const initNode = findChild(node, 'variable_assignment');
+    const conditionNode = findChild(node, 'expression');
+    const stepNode = findAllChildren(node, 'variable_assignment')[1]; // The second assignment is the step
+    const bodyNode = findChild(node, 'statement');
+
+    if (!initNode || !conditionNode || !stepNode || !bodyNode) {
+        return baseIndent + extractOriginalText(node, context.originalText) + (style.isKnrStyle ? "" : "\n");
+    }
+
+    const initPart = reconstructExpressionText(initNode, context);
+    const condPart = reconstructExpressionText(conditionNode, context);
+    const stepPart = reconstructExpressionText(stepNode, context);
+
+    let content = baseIndent + `for (${initPart}; ${condPart}; ${stepPart}) `;
+    
+    // Pass isKnrStyle=true to format the body correctly (e.g., "begin" on the same line)
+    content += formatStatement(bodyNode, config, indentLevel, context, { isKnrStyle: true });
+
+    return content;
+}
+
+
 // =========================================================================
 // REGEX-BASED FALLBACK MODE FUNCTIONS (Unchanged)
 // =========================================================================
@@ -583,7 +699,7 @@ function alignVerilogCodeRegexOnly(text: string, config: vscode.WorkspaceConfigu
     const alignedLines = lines.map(line => {
       const trimmedLine = line.trim();
       if (trimmedLine.startsWith('/*') || trimmedLine.startsWith('//') || trimmedLine === '') return line;
-      const isTwoDimArray = /^\s*(reg|wire)\s*(signed|unsigned)?\s*($$[^$$]+\])\s*[^;,\s]+\s*($$[^$$]+\])/.test(line);
+      const isTwoDimArray = /^\s*(reg|wire)\s*(signed|unsigned)?\s*(\[[^\]]+\])\s*[^;,\s]+\s*(\[[^\]]+\])/.test(line);
       if (isTwoDimArray) return alignTwoDimArrayDeclaration(line, config);
       if (trimmedLine.startsWith('input') || trimmedLine.startsWith('output') || trimmedLine.startsWith('inout')) return alignPortDeclarationRegex(line, config);
       if (trimmedLine.startsWith('reg') || trimmedLine.startsWith('wire') || trimmedLine.startsWith('integer') || trimmedLine.startsWith('real')) return alignRegWireIntegerDeclaration(line, config);
@@ -599,7 +715,7 @@ function alignPortDeclarationRegex(line: string, config: vscode.WorkspaceConfigu
     const port_num3 = config.get<number>('port_num3', 25);
     const port_num4 = config.get<number>('port_num4', 50);
     const port_num5 = config.get<number>('port_num5', 80);
-    const regex = /^\s*(input\b|output\b|inout\b)\s*(reg|wire)?\s*(signed|unsigned)?\s*($$[^$$]+\])?\s*([^;,\s]+)\s*([,;])?\s*(.*)/;
+    const regex = /^\s*(input\b|output\b|inout\b)\s*(reg|wire)?\s*(signed|unsigned)?\s*(\[[^\]]+\])?\s*([^;,\s]+)\s*([,;])?\s*(.*)/;
     const match = line.match(regex);
     if (!match) return line;
     const indent = line.match(/^\s*/)?.[0] || '';
@@ -632,7 +748,7 @@ function alignRegWireIntegerDeclaration(line: string, config: vscode.WorkspaceCo
     const signal_num3 = config.get<number>('signal_num3', 25);
     const signal_num4 = config.get<number>('signal_num4', 50);
     const signal_num5 = config.get<number>('signal_num5', 80);
-    const regex = /^\s*(reg\b|wire\b|integer\b|real\b)\s*(signed|unsigned)?\s*($$[^$$]+\])?\s*([^;,\s]+)\s*([,;])?\s*(.*)/;
+    const regex = /^\s*(reg\b|wire\b|integer\b|real\b)\s*(signed|unsigned)?\s*(\[[^\]]+\])?\s*([^;,\s]+)\s*([,;])?\s*(.*)/;
     const match = line.match(regex);
     if (!match) return line;
     const indent = line.match(/^\s*/)?.[0] || '';
@@ -709,7 +825,7 @@ function alignAssignDeclaration(line: string, config: vscode.WorkspaceConfigurat
 function alignInstanceSignal(line: string, config: vscode.WorkspaceConfiguration): string {
     const inst_num2 = config.get<number>('inst_num2', 40);
     const inst_num3 = config.get<number>('inst_num3', 80);
-    const regex = /^\s*\.([^\s$]+)\s*\(([^)]*)$\s*([,])?\s*(.*)/;
+    const regex = /^\s*\.([^\s\(]+)\s*\(([^)]*)\)\s*([,])?\s*(.*)/;
     const match = line.match(regex);
     if (!match) return line;
     const indent = line.match(/^\s*/)?.[0] || '';
@@ -733,7 +849,7 @@ function alignTwoDimArrayDeclaration(line: string, config: vscode.WorkspaceConfi
     const array_num4 = config.get<number>('array_num4', 50);
     const array_num5 = config.get<number>('array_num5', 60);
     const array_num6 = config.get<number>('array_num6', 80);
-    const regex = /^\s*(reg\b|wire\b)\s*(signed|unsigned)?\s*($$[^$$]+\])\s*([^;,\s]+\s*($$[^$$]+\]))\s*([;])?\s*(.*)/;
+    const regex = /^\s*(reg|wire)\s*(signed|unsigned)?\s*(\[[^\]]+\])\s*([^;,\s]+\s*(\[[^\]]+\]))\s*([;])?\s*(.*)/;
     const match = line.match(regex);
     if (!match) return line;
     const indent = line.match(/^\s*/)?.[0] || '';
@@ -765,7 +881,7 @@ function alignTwoDimArrayDeclaration(line: string, config: vscode.WorkspaceConfi
 function alignBitWidthDeclarationRegex(bitwidthString: string, config: vscode.WorkspaceConfiguration): string {
   const upbound = config.get('upbound', 2);
   const lowbound = config.get('lowbound', 2);
-  const regex = /$$\s*([^:]+)\s*:\s*([^$$]+)\s*\]/;
+  const regex = /\[\s*([^:]+)\s*:\s*([^\]]+)\s*\]/;
   const match = bitwidthString.match(regex);
   if (!match) return bitwidthString;
   const up = match[1].trim();
