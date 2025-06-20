@@ -96,7 +96,7 @@ function extractOriginalText(node: ASTNode, fullText: string): string {
     let extracted = lines[startLine].substring(startCol);
     for (let i = startLine + 1; i < endLine; i++) extracted += '\n' + lines[i];
     extracted += '\n' + lines[endLine].substring(0, endCol);
-    return extracted.trim();
+    return extracted;
 }
 
 function reconstructExpressionText(node: ASTNode | undefined, context: FormattingContext): string {
@@ -120,7 +120,7 @@ function reconstructExpressionText(node: ASTNode | undefined, context: Formattin
 
     if (node.children && node.children.length > 0) {
         let result = '';
-        const noSpaceAfter = new Set(['[', '{', '.', '(', '`', '\'']); 
+        const noSpaceAfter = new Set(['[', '{', '.', '(', '`', '\'', '!', '~', '$']); 
         const noSpaceBefore = new Set(['[', ']', '{', '}', '.', '(', ')', ',', ';', ':', '\'']); 
         
         for (const child of node.children) {
@@ -177,18 +177,25 @@ function formatTrailingComments(comments: CommentInfo[] | undefined, context: Fo
     return formatted.join(' ');
 }
 
-function findDeepTrailingComments(node: ASTNode): CommentInfo[] {
-    let comments: CommentInfo[] = [];
-    if (node.trailingComments) comments.push(...node.trailingComments);
-    if (node.children) {
-        for (let i = node.children.length - 1; i >= 0; i--) {
-            comments.push(...findDeepTrailingComments(node.children[i]));
-        }
+function formatDeclarationLine(
+    node: ASTNode,
+    codeFormatter: (node: ASTNode, config: vscode.WorkspaceConfiguration, indentLevel: number, context: FormattingContext) => string,
+    getTrailingPart: (node: ASTNode, context: FormattingContext) => string,
+    alignColumn: number,
+    indentLevel: number,
+    context: FormattingContext
+): string {
+    const baseIndent = indentChar.repeat(indentLevel);
+    const leadingComments = formatLeadingComments(node.leadingComments, baseIndent, context);
+    const codePart = codeFormatter(node, context.config, indentLevel, context);
+    const trailingPart = getTrailingPart(node, context);
+    let finalLine = codePart;
+    if (trailingPart.trim()) {
+        finalLine += ' '.repeat(Math.max(1, alignColumn - finalLine.length)) + trailingPart;
     }
-    const uniqueCommentsMap = new Map<number, CommentInfo>();
-    comments.forEach(c => uniqueCommentsMap.set(c.originalTokenIndex, c));
-    return Array.from(uniqueCommentsMap.values());
+    return (leadingComments + finalLine).trimEnd();
 }
+
 
 function formatASTNode(node: ASTNode, config: vscode.WorkspaceConfiguration, indentLevel: number, context: FormattingContext): string {
     if (!node || node.name === 'EOF') return '';
@@ -205,51 +212,58 @@ function formatASTNode(node: ASTNode, config: vscode.WorkspaceConfiguration, ind
         case 'timescale_directive':
         case 'ifdef_directive': {
             const code = formatPreprocessorDirective(node, config, indentLevel, context);
-            const directTrailingComment = formatTrailingComments(findDeepTrailingComments(node), context);
-            return content + code.trimEnd() + (directTrailingComment ? ' ' + directTrailingComment : '') + '\n';
+            const trailingComment = formatTrailingComments(node.trailingComments, context);
+            return content + code.trimEnd() + (trailingComment ? ' ' + trailingComment : '') + '\n';
         }
         case 'module_item': {
-            const itemNode = node.children?.find(c => c.name.endsWith('_construct') || c.name.endsWith('_instantiation') || c.name.endsWith('_declaration') || c.name.endsWith('_assign'));
-            
+            const itemNode = node.children?.[0];
             if (!itemNode) {
-                const trailing = formatTrailingComments(findDeepTrailingComments(node), context);
-                if (trailing) return content + baseIndent + trailing + '\n';
+                const trailing = formatTrailingComments(findChild(node, 'SEMI')?.trailingComments, context);
+                if (trailing) content += baseIndent + trailing + '\n';
                 return content;
             }
 
             if (itemNode.name.endsWith('_declaration') || itemNode.name.endsWith('_assign')) {
-                let codeLine = formatASTNode(itemNode, config, indentLevel, context);
-                const trailingComment = formatTrailingComments(findDeepTrailingComments(node), context);
-                let finalPart = ';' + (trailingComment ? ' ' + trailingComment : '');
-                
-                let alignColumn = 80;
-                if (itemNode.name.includes('param')) alignColumn = config.get<number>('localparam_num4', 80);
-                else if (itemNode.name.includes('assign')) alignColumn = config.get<number>('assign_num4', 80);
-                else alignColumn = config.get<number>('signal_num5', 80);
+                const getTrailingPart = (n: ASTNode, ctx: FormattingContext) => {
+                    const trailingComment = formatTrailingComments(node.trailingComments, ctx);
+                    return ';' + (trailingComment ? ' ' + trailingComment : '');
+                };
 
-                const spaces = Math.max(1, alignColumn - codeLine.length);
-                codeLine += ' '.repeat(spaces) + finalPart;
-                return content + codeLine + '\n';
+                let formatterFn: (n: ASTNode, cfg: vscode.WorkspaceConfiguration, i: number, ctx: FormattingContext) => string;
+                let alignConfigKey: string;
+
+                if (itemNode.name.includes('param')) {
+                    formatterFn = formatLocalParameterDeclarationCode;
+                    alignConfigKey = 'localparam_num4';
+                } else if (itemNode.name.includes('assign')) {
+                    formatterFn = formatContinuousAssignCode;
+                    alignConfigKey = 'assign_num4';
+                } else {
+                    formatterFn = formatSignalsDeclarationCode;
+                    alignConfigKey = 'signal_num5';
+                }
+                
+                content += formatDeclarationLine(
+                    itemNode, formatterFn, getTrailingPart, config.get<number>(alignConfigKey, 80),
+                    indentLevel, context
+                ) + '\n';
+            } else {
+                 content += formatASTNode(itemNode, config, indentLevel, context);
             }
-             
-            return content + formatASTNode(itemNode, config, indentLevel, context);
+            return content;
         }
-        case 'parameter_declaration':
-        case 'localparam_declaration':
-            return formatLocalParameterDeclaration(node, config, indentLevel, context);
-        case 'reg_declaration':
-        case 'wire_declaration':
-        case 'integer_declaration':
-        case 'real_declaration':
-            return formatSignalsDeclaration(node, config, indentLevel, context);
-        case 'continuous_assign':
-             return formatContinuousAssign(node, config, indentLevel, context);
         case 'always_construct':
             return content + formatAlwaysConstruct(node, config, indentLevel, context);
+        case 'initial_construct':
+            return content + formatInitialConstruct(node, config, indentLevel, context);
         case 'module_instantiation':
             return content + formatModuleInstantiation(node, config, indentLevel, context);
         default:
-            console.warn(`[formatASTNode] Unhandled node type: ${node.name}.`);
+            const rawText = extractOriginalText(node, context.originalText).trim();
+            if (rawText) {
+                const trailingComment = formatTrailingComments(node.trailingComments, context);
+                return content + baseIndent + rawText + (trailingComment ? ' ' + trailingComment : '') + '\n';
+            }
             return content;
     }
 }
@@ -272,7 +286,7 @@ function formatModuleDeclaration(node: ASTNode, config: vscode.WorkspaceConfigur
     content += '\n' + indent + 'endmodule';
     const endmoduleNode = findChild(node, 'ENDMODULE');
     if (endmoduleNode) {
-        const trailingComment = formatTrailingComments(findDeepTrailingComments(endmoduleNode), context);
+        const trailingComment = formatTrailingComments(endmoduleNode.trailingComments, context);
         if (trailingComment) content += ' ' + trailingComment;
     }
     return content + '\n';
@@ -280,122 +294,109 @@ function formatModuleDeclaration(node: ASTNode, config: vscode.WorkspaceConfigur
 
 function formatParameterPortList(node: ASTNode, config: vscode.WorkspaceConfiguration, indentLevel: number, context: FormattingContext): string {
     const indent = indentChar.repeat(indentLevel);
-    const paramIndentStr = indentChar.repeat(indentLevel + 1);
-    const param_num2 = config.get<number>('param_num2', 25);
-    const param_num3 = config.get<number>('param_num3', 50);
-    const param_num4 = config.get<number>('param_num4', 80);
-
     const assignments = findAllChildren(node, 'param_assignment');
     if (assignments.length === 0) return '#()';
 
-    interface ProcessedLineInfo {
-        node: ASTNode;
-        leadingComments: CommentInfo[];
-        trailingComments: CommentInfo[];
-    }
-
-    const lineInfos: ProcessedLineInfo[] = assignments.map(p => ({
-        node: p,
-        leadingComments: p.leadingComments || [],
-        trailingComments: findDeepTrailingComments(p)
-    }));
-
-    for (let i = 0; i < lineInfos.length - 1; i++) {
-        const currentInfo = lineInfos[i];
-        const nextInfo = lineInfos[i + 1];
-        if (nextInfo.node.start!.line > currentInfo.node.end!.line) {
-            if (nextInfo.leadingComments.length > 0) {
-                currentInfo.trailingComments.push(...nextInfo.leadingComments);
-                nextInfo.leadingComments = [];
-            }
-        }
-    }
+    reassociateTrailingLineComments(assignments);
 
     const resultLines: string[] = [];
-    for (let i = 0; i < lineInfos.length; i++) {
-        const info = lineInfos[i];
+    for (let i = 0; i < assignments.length; i++) {
+        const assignment = assignments[i];
         
-        resultLines.push(formatLeadingComments(info.leadingComments, paramIndentStr, context).trimEnd());
+        const getTrailingPart = (n: ASTNode, ctx: FormattingContext) => {
+            const isLast = (i === assignments.length - 1);
+            const separator = isLast ? '' : ',';
+            const trailingCommentText = formatTrailingComments(n.trailingComments, ctx);
+            return separator + (trailingCommentText ? ' ' + trailingCommentText : '');
+        };
 
-        const keyword = getRawNodeText(findChild(info.node, 'PARAMETER'));
-        const identifier = getRawNodeText(findChild(info.node, 'IDENTIFIER'));
-        const value = reconstructExpressionText(findChild(info.node, 'primary'), context);
-        let currentLine = paramIndentStr + keyword;
-        currentLine += ' '.repeat(Math.max(1, param_num2 - currentLine.length)) + identifier;
-        currentLine += ' '.repeat(Math.max(1, param_num3 - currentLine.length)) + '= ' + value;
-
-        const trailingCommentText = formatTrailingComments(info.trailingComments, context);
-        const isLast = (i === lineInfos.length - 1);
-        const separator = isLast ? '' : ',';
-        const finalPart = separator + (trailingCommentText ? ' ' + trailingCommentText : '');
-        
-        if (finalPart.trim()) {
-            currentLine += ' '.repeat(Math.max(1, param_num4 - currentLine.length)) + finalPart;
-        } else {
-            currentLine += separator;
-        }
-        resultLines.push(currentLine);
+        const line = formatDeclarationLine(
+            assignment, formatParamAssignmentCode, getTrailingPart,
+            config.get<number>('param_num4', 80), indentLevel + 1, context
+        );
+        resultLines.push(line);
     }
     
     return `#(\n${resultLines.filter(Boolean).join('\n')}\n${indent})`;
 }
 
-function formatPortList(node: ASTNode, config: vscode.WorkspaceConfiguration, indentLevel: number, context: FormattingContext): string {
-    const indent = indentChar.repeat(indentLevel);
-    const portIndent = indentChar.repeat(indentLevel + 1);
-    const commentAlignColumn = config.get<number>('port_num5', 80);
-
-    const portDecls = (node.children || []).filter(c => c.name.endsWith('_declaration')).sort((a,b) => a.start!.line - b.start!.line);
-    if (portDecls.length === 0) return `${indent}()`;
-
-    interface ProcessedLineInfo {
-        node: ASTNode;
-        leadingComments: CommentInfo[];
-        trailingComments: CommentInfo[];
+function reassociateTrailingLineComments(items: ASTNode[]): void {
+    if (!items || items.length < 2) {
+        return;
     }
+    for (let i = 0; i < items.length - 1; i++) {
+        const currentItem = items[i];
+        const nextItem = items[i + 1];
 
-    const lineInfos: ProcessedLineInfo[] = portDecls.map(decl => ({
-        node: decl,
-        leadingComments: decl.leadingComments || [],
-        trailingComments: findDeepTrailingComments(decl)
-    }));
+        if (!currentItem.end || !nextItem.leadingComments || nextItem.leadingComments.length === 0) {
+            continue;
+        }
 
-    for (let i = 0; i < lineInfos.length - 1; i++) {
-        const currentInfo = lineInfos[i];
-        const nextInfo = lineInfos[i + 1];
-        if (nextInfo.node.start!.line > currentInfo.node.end!.line) {
-            if (nextInfo.leadingComments.length > 0) {
-                currentInfo.trailingComments.push(...nextInfo.leadingComments);
-                nextInfo.leadingComments = [];
+        // 寻找所有需要移动的行注释。它们通常是下一项的前置注释中的第一个或前几个。
+        const commentsToMove: CommentInfo[] = [];
+        let firstNonMovableCommentIndex = -1;
+
+        for (let j = 0; j < nextItem.leadingComments.length; j++) {
+            const comment = nextItem.leadingComments[j];
+            // 关键修正：如果一个注释是行注释(//)，我们就认为它应该被移动。
+            // 这是一个非常可靠的启发式方法，因为列表项的前置注释几乎不应该是行注释。
+            if (comment.text.startsWith('//')) {
+                commentsToMove.push(comment);
+            } else {
+                // 一旦遇到块注释(/**/)或非注释内容，就停止移动。
+                firstNonMovableCommentIndex = j;
+                break;
+            }
+        }
+        
+        if (commentsToMove.length > 0) {
+            if (!currentItem.trailingComments) {
+                currentItem.trailingComments = [];
+            }
+            // 将找到的注释移动到当前项的尾部
+            currentItem.trailingComments.push(...commentsToMove);
+
+            // 从下一项的前置注释中移除已移动的注释
+            if (firstNonMovableCommentIndex !== -1) {
+                nextItem.leadingComments = nextItem.leadingComments.slice(firstNonMovableCommentIndex);
+            } else {
+                // 如果所有前置注释都被移动了
+                nextItem.leadingComments = [];
             }
         }
     }
-    
+}
+
+
+function formatPortList(node: ASTNode, config: vscode.WorkspaceConfiguration, indentLevel: number, context: FormattingContext): string {
+    const indent = indentChar.repeat(indentLevel);
+    const portDecls = (node.children || []).filter(c => c.name.endsWith('_declaration')).sort((a,b) => (a.start?.line || 0) - (b.start?.line || 0));
+    if (portDecls.length === 0) return `${indent}()`;
+
+    reassociateTrailingLineComments(portDecls);
+
     const resultLines: string[] = [];
-    for (let i = 0; i < lineInfos.length; i++) {
-        const info = lineInfos[i];
+    for (let i = 0; i < portDecls.length; i++) {
+        const decl = portDecls[i];
         
-        resultLines.push(formatLeadingComments(info.leadingComments, portIndent, context).trimEnd());
+        const getTrailingPart = (n: ASTNode, ctx: FormattingContext) => {
+            const isLast = (i === portDecls.length - 1);
+            const separator = isLast ? '' : ',';
+            const trailingCommentText = formatTrailingComments(n.trailingComments, ctx);
+            return separator + (trailingCommentText ? " " + trailingCommentText : "");
+        };
 
-        let codeLine = formatPortDeclaration(info.node, config, indentLevel + 1, context);
-        const trailingCommentText = formatTrailingComments(info.trailingComments, context);
-
-        const isLast = (i === lineInfos.length - 1);
-        const separator = isLast ? '' : ',';
-        const finalPart = separator + (trailingCommentText ? " " + trailingCommentText : "");
-        
-        if (finalPart.trim()) {
-            codeLine += ' '.repeat(Math.max(1, commentAlignColumn - codeLine.length)) + finalPart;
-        } else {
-            codeLine += separator;
-        }
-        resultLines.push(codeLine);
+        const line = formatDeclarationLine(
+            decl, formatPortDeclarationCode, getTrailingPart,
+            config.get<number>('port_num5', 80), indentLevel + 1, context
+        );
+        resultLines.push(line);
     }
 
     return `${indent}(\n${resultLines.filter(Boolean).join('\n')}\n${indent})`;
 }
 
-function formatPortDeclaration(declaration: ASTNode, config: vscode.WorkspaceConfiguration, indentLevel: number, context: FormattingContext): string {
+function formatPortDeclarationCode(declaration: ASTNode, config: vscode.WorkspaceConfiguration, indentLevel: number, context: FormattingContext): string {
     const indentStr = indentChar.repeat(indentLevel);
     let typePart = '';
     if (declaration.name === 'input_declaration') typePart = 'input';
@@ -424,7 +425,23 @@ function formatPortDeclaration(declaration: ASTNode, config: vscode.WorkspaceCon
     return currentLine;
 }
 
-function formatLocalParameterDeclaration(decl: ASTNode, config: vscode.WorkspaceConfiguration, indentLevel: number, context: FormattingContext): string {
+function formatParamAssignmentCode(assignment: ASTNode, config: vscode.WorkspaceConfiguration, indentLevel: number, context: FormattingContext): string {
+    const indentStr = indentChar.repeat(indentLevel);
+    const param_num2 = config.get<number>('param_num2', 25);
+    const param_num3 = config.get<number>('param_num3', 50);
+    
+    const keyword = getRawNodeText(findChild(assignment, 'PARAMETER'));
+    const identifier = getRawNodeText(findChild(assignment, 'IDENTIFIER'));
+    const value = reconstructExpressionText(findChild(assignment, 'primary'), context);
+    
+    let currentLine = indentStr + keyword;
+    currentLine += ' '.repeat(Math.max(1, param_num2 - currentLine.length)) + identifier;
+    currentLine += ' '.repeat(Math.max(1, param_num3 - currentLine.length)) + '= ' + value;
+    return currentLine;
+}
+
+
+function formatLocalParameterDeclarationCode(decl: ASTNode, config: vscode.WorkspaceConfiguration, indentLevel: number, context: FormattingContext): string {
     const indentStr = indentChar.repeat(indentLevel);
     const localparam_num2 = config.get<number>('localparam_num2', 25);
     const localparam_num3 = config.get<number>('localparam_num3', 50);
@@ -435,10 +452,10 @@ function formatLocalParameterDeclaration(decl: ASTNode, config: vscode.Workspace
     let currentLine = indentStr + keyword;
     currentLine += ' '.repeat(Math.max(1, localparam_num2 - currentLine.length)) + identifier;
     currentLine += ' '.repeat(Math.max(1, localparam_num3 - currentLine.length)) + '= ' + value;
-    return currentLine.trimEnd();
+    return currentLine;
 }
 
-function formatSignalsDeclaration(decl: ASTNode, config: vscode.WorkspaceConfiguration, indentLevel: number, context: FormattingContext): string {
+function formatSignalsDeclarationCode(decl: ASTNode, config: vscode.WorkspaceConfiguration, indentLevel: number, context: FormattingContext): string {
     const indentStr = indentChar.repeat(indentLevel);
     let type = '';
     if (decl.name === 'reg_declaration') type = 'reg';
@@ -454,22 +471,24 @@ function formatSignalsDeclaration(decl: ASTNode, config: vscode.WorkspaceConfigu
     const signal_num4 = config.get<number>('signal_num4', 50);
 
     let currentLine = indentStr + type;
-    currentLine += ' '.repeat(Math.max(1, signal_num2 - currentLine.length));
-    currentLine += signed;
-    currentLine += ' '.repeat(Math.max(1, signal_num3 - currentLine.length));
-    currentLine += range;
-    currentLine += ' '.repeat(Math.max(1, signal_num4 - currentLine.length));
-    currentLine += identifier;
-    return currentLine.trimEnd();
+    currentLine += ' '.repeat(Math.max(1, signal_num2 - currentLine.length)) + signed;
+    currentLine += ' '.repeat(Math.max(1, signal_num3 - currentLine.length)) + range;
+    currentLine += ' '.repeat(Math.max(1, signal_num4 - currentLine.length)) + identifier;
+    return currentLine;
 }
 
-function formatContinuousAssign(node: ASTNode, config: vscode.WorkspaceConfiguration, indentLevel: number, context: FormattingContext): string {
+function formatContinuousAssignCode(node: ASTNode, config: vscode.WorkspaceConfiguration, indentLevel: number, context: FormattingContext): string {
     const indentStr = indentChar.repeat(indentLevel);
     const assign_num2 = config.get<number>('assign_num2', 12);
     const assign_num3 = config.get<number>('assign_num3', 30);
     const lvalueNode = findChild(node, 'variable_lvalue') || findChild(node, 'net_lvalue');
-    const expressionNode = node.children?.find(c => c.name.endsWith('expression'));
-    if (!lvalueNode || !expressionNode) return `${indentStr}assign ; // Error: Could not parse.`;
+    
+    const expressionNode = node.children?.find(c => c.name.endsWith('expression') || c.name === 'concatenation');
+    
+    if (!lvalueNode || !expressionNode) {
+        return indentStr + 'assign';
+    }
+    
     const lvalue = reconstructExpressionText(lvalueNode, context);
     const expression = reconstructExpressionText(expressionNode, context);
     
@@ -481,135 +500,352 @@ function formatContinuousAssign(node: ASTNode, config: vscode.WorkspaceConfigura
 
 function formatPreprocessorDirective(node: ASTNode, config: vscode.WorkspaceConfiguration, indentLevel: number, context: FormattingContext): string {
     const baseIndent = indentChar.repeat(indentLevel);
-    return baseIndent + reconstructExpressionText(node, context);
+    const alignCol1 = config.get<number>('preprocessor_col1', 12);
+    const alignCol2 = config.get<number>('preprocessor_col2', 24);
+
+    let currentLine = '';
+
+    switch (node.name) {
+        case 'define_directive': {
+            const directive = getRawNodeText(findChild(node, 'TICK_DEFINE'));
+            const macroName = getRawNodeText(findChild(node, 'MACRO_IDENTIFIER'));
+            const macroBody = getRawNodeText(findChild(node, 'MACRO_BODY'))?.trim();
+            
+            currentLine = baseIndent + directive;
+            if (macroName) {
+                currentLine += ' '.repeat(Math.max(1, alignCol1 - currentLine.length)) + macroName;
+            }
+            if (macroBody) {
+                currentLine += ' '.repeat(Math.max(1, alignCol2 - currentLine.length)) + macroBody;
+            }
+            return currentLine;
+        }
+
+        case 'timescale_directive': {
+            const directive = getRawNodeText(findChild(node, 'TICK_TIMESCALE'));
+            const value = getRawNodeText(findChild(node, 'TIMESCALE_VALUE'))?.trim();
+
+            currentLine = baseIndent + directive;
+            if (value) {
+                currentLine += ' '.repeat(Math.max(1, alignCol1 - currentLine.length)) + value;
+            }
+            return currentLine;
+        }
+
+        case 'include_directive': {
+            const directive = getRawNodeText(findChild(node, 'TICK_INCLUDE'));
+            const filename = getRawNodeText(findChild(node, 'STRING'))?.trim();
+
+            currentLine = baseIndent + directive;
+            if (filename) {
+                currentLine += ' '.repeat(Math.max(1, alignCol1 - currentLine.length)) + filename;
+            }
+            return currentLine;
+        }
+        
+        case 'ifdef_directive': {
+            const lines: string[] = [];
+            const children = node.children || [];
+            
+            for (let i = 0; i < children.length; i++) {
+                const child = children[i];
+                let line = '';
+                
+                if (child.name === 'TICK_IFDEF' || child.name === 'TICK_IFNDEF' || child.name === 'TICK_ELSIF') {
+                    line = baseIndent + child.value;
+                    if (i + 1 < children.length && children[i + 1].name === 'IDENTIFIER') {
+                        const identifier = children[i + 1].value;
+                        line += ' '.repeat(Math.max(1, alignCol1 - line.length)) + identifier;
+                        i++; 
+                    }
+                    lines.push(line);
+                } else if (child.name === 'TICK_ELSE' || child.name === 'TICK_ENDIF') {
+                    line = baseIndent + child.value;
+                    lines.push(line);
+                }
+            }
+            return lines.join('\n');
+        }
+
+        default:
+            return baseIndent + reconstructExpressionText(node, context);
+    }
 }
 
 // =========================================================================
-// STATEMENT AND INSTANTIATION HANDLING (FINALIZED AND CORRECTED)
+// STATEMENT AND INSTANTIATION HANDLING (FINAL, ROBUST VERSION)
 // =========================================================================
 interface StatementStyle { isKnrStyle?: boolean; isChainedIf?: boolean; }
 
-function findAndStealBeginComment(node: ASTNode | undefined, context: FormattingContext): string {
-    if (!node) return '';
-    if (node.leadingComments && node.leadingComments.length > 0) {
-        const commentText = formatTrailingComments(node.leadingComments, context);
-        node.leadingComments = [];
-        return commentText ? ' ' + commentText : '';
+function formatInitialConstruct(node: ASTNode, config: vscode.WorkspaceConfiguration, indentLevel: number, context: FormattingContext): string {
+    const baseIndent = indentChar.repeat(indentLevel);
+    let content = baseIndent + 'initial';
+
+    // In an initial block, the body can be a single statement or a begin-end block.
+    const bodyNode = findChild(node, 'statement');
+    if (!bodyNode) {
+        return content + ';\n';
     }
-    if (node.children && node.children.length > 0) {
-        return findAndStealBeginComment(node.children[0], context);
-    }
-    return '';
+
+    const bodyContent = formatStatement(bodyNode, config, indentLevel, context, { isKnrStyle: true });
+    
+    return content + ' ' + bodyContent.trim() + '\n';
 }
 
 function formatAlwaysConstruct(node: ASTNode, config: vscode.WorkspaceConfiguration, indentLevel: number, context: FormattingContext): string {
     const baseIndent = indentChar.repeat(indentLevel);
-    const sensitivityList = reconstructExpressionText(findChild(node, 'event_control'), context);
-    let content = baseIndent + 'always ' + sensitivityList.trim() + ' ';
-    const bodyStatementNode = findChild(node, 'statement');
-    if (bodyStatementNode) {
-        content += formatStatement(bodyStatementNode, config, indentLevel, context, { isKnrStyle: true });
-    } else { content += ';'; }
-    return content + '\n\n';
+    let content = baseIndent + 'always';
+    let bodyContent = '';
+
+    const eventControlNode = findChild(node, 'event_control');
+    const procTimeControlNode = findChild(node, 'procedural_timing_control_statement');
+    const statementNode = findChild(node, 'statement');
+
+    if (eventControlNode) {
+        content += ' ' + reconstructExpressionText(eventControlNode, context);
+        const trailingComment = formatTrailingComments(eventControlNode.trailingComments, context);
+        if (trailingComment) {
+            content += ' ' + trailingComment;
+        }
+        if (statementNode) {
+            bodyContent = formatStatement(statementNode, config, indentLevel, context, { isKnrStyle: true });
+        }
+    } else if (procTimeControlNode) {
+        // This case handles `always #10 a = b;`
+        bodyContent = formatExecutableNode(procTimeControlNode, config, indentLevel, context, { isKnrStyle: true });
+    } else if (statementNode) {
+        bodyContent = formatStatement(statementNode, config, indentLevel, context, { isKnrStyle: true });
+    }
+
+    if (bodyContent.trim()) {
+        return content + ' ' + bodyContent.trim() + '\n';
+    }
+    
+    return content + ';\n';
 }
 
-function formatStatement(node: ASTNode, config: vscode.WorkspaceConfiguration, indentLevel: number, context: FormattingContext, style: StatementStyle = {}): string {
+// Universal formatter for any node inside a begin-end block or similar structure.
+function formatExecutableNode(node: ASTNode, config: vscode.WorkspaceConfiguration, indentLevel: number, context: FormattingContext, style: StatementStyle = {}): string {
     const itemIndent = indentChar.repeat(indentLevel);
-    
-    if (!node.children || node.children.length === 0 || node.children.every(c => c.name === 'SEMI')) {
-        const leading = formatLeadingComments(node.leadingComments, itemIndent, context);
-        const trailing = formatTrailingComments(findDeepTrailingComments(node), context);
-        const combined = (leading.trim() + ' ' + trailing.trim()).trim();
-        return combined ? itemIndent + combined : '';
-    }
-    
-    const leadingComments = formatLeadingComments(node.leadingComments, itemIndent, context);
+    const leadingComments = formatLeadingComments(node.leadingComments, style.isChainedIf ? '' : itemIndent, context);
+
     let codeContent = '';
-    const firstSemanticChild = node.children[0]; 
-
-    switch (firstSemanticChild.name) {
-        case 'BEGIN': 
-            codeContent = formatBeginEnd(node, config, indentLevel, context, style); 
+    
+    switch (node.name) {
+        case 'statement':
+            codeContent = formatStatement(node, config, indentLevel, context, style);
             break;
-        case 'IF': 
-            codeContent = formatIfStatement(node, config, indentLevel, context, style); 
+        case 'procedural_timing_control_statement':
+        case 'wait_statement':
+            codeContent = formatSimpleStatement(node, config, indentLevel, context);
             break;
-        case 'FOR': 
-            codeContent = formatForStatement(node, config, indentLevel, context, style); 
-            break;
-        case 'blocking_or_nonblocking_assignment':
-        case 'procedural_assignment': {
-            const always_lvalue_align = config.get<number>('always_lvalue_align', 20);
-            const always_op_align = config.get<number>('always_op_align', 24);
-            const lvalueNode = findChild(firstSemanticChild, 'variable_lvalue');
-            const opNode = findChild(firstSemanticChild, 'LE_OP') || findChild(firstSemanticChild, 'ASSIGN_EQ');
-            const rvalueNode = firstSemanticChild.children?.find(c => c.name.endsWith('expression') || c.name === 'primary' || c.name === 'concatenation');
-            if (lvalueNode && opNode && rvalueNode) {
-                const lvalue = reconstructExpressionText(lvalueNode, context);
-                const op = opNode.value || '<=';
-                const rvalue = reconstructExpressionText(rvalueNode, context);
-                let line = itemIndent + lvalue;
-                line += ' '.repeat(Math.max(1, always_lvalue_align - line.length)) + op;
-                line += ' '.repeat(Math.max(1, always_op_align - line.length)) + rvalue;
-                codeContent = line + ';';
-            } else {
-                codeContent = `${itemIndent}${reconstructExpressionText(firstSemanticChild, context)};`;
-            }
-            break;
-        }
-        case 'SEMI': 
-            codeContent = `${itemIndent};`; 
-            break;
-        default: 
-            codeContent = `${itemIndent}${extractOriginalText(node, context.originalText)}`; 
+        default:
+            // Fallback for any other unexpected top-level executable nodes
+            codeContent = itemIndent + extractOriginalText(node, context.originalText).trim();
             break;
     }
-
-    const trailingComment = formatTrailingComments(findDeepTrailingComments(node), context);
-    if (trailingComment) {
-        codeContent = codeContent.trimEnd() + ' ' + trailingComment;
-    }
+    
     return (leadingComments + codeContent).trimEnd();
+}
+
+
+function formatStatement(node: ASTNode, config: vscode.WorkspaceConfiguration, indentLevel: number, context: FormattingContext, style: StatementStyle = {}): string {
+    const firstSemanticChild = node.children?.find(c => c.name && c.name !== 'SEMI');
+    if (!firstSemanticChild) {
+        const itemIndent = indentChar.repeat(indentLevel);
+        const trailingComment = formatTrailingComments(findChild(node, 'SEMI')?.trailingComments, context);
+        return ((style.isChainedIf ? '' : itemIndent) + ';' + (trailingComment ? ' ' + trailingComment : '')).trimEnd();
+    }
+    
+    let codeContent = '';
+    
+    switch (firstSemanticChild.name) {
+        case 'BEGIN': // This is a begin-end block statement
+            return formatBeginEnd(node, config, indentLevel, context, style);
+        case 'IF':
+            return formatIfStatement(node, config, indentLevel, context, style);
+        case 'FOR':
+            return formatForStatement(node, config, indentLevel, context, style);
+        case 'REPEAT':
+            return formatRepeatStatement(node, config, indentLevel, context, style);
+        
+        case 'blocking_or_nonblocking_assignment':
+            codeContent = formatAssignmentStatement(firstSemanticChild, config, indentLevel, context);
+            break;
+        
+        default:
+            // This covers system calls like $display, $stop etc.
+            codeContent = formatSimpleStatement(node, config, indentLevel, context);
+            break;
+    }
+
+    const trailingCommentOnNode = formatTrailingComments(node.trailingComments, context);
+    const semiNode = findChild(node, 'SEMI');
+    const semiTrailingComment = semiNode ? formatTrailingComments(semiNode.trailingComments, context) : '';
+    const finalComment = [trailingCommentOnNode, semiTrailingComment].filter(Boolean).join(' ');
+
+    if (finalComment) {
+        const commentAlign = config.get<number>('always_comment_align', 80);
+        let contentToPad = codeContent;
+        if (contentToPad.endsWith(';')) {
+            contentToPad = contentToPad.slice(0, -1).trimEnd();
+        }
+        codeContent = contentToPad + ' '.repeat(Math.max(1, commentAlign - contentToPad.length)) + finalComment;
+    }
+
+    if (!codeContent.trim().endsWith(';')) {
+        codeContent += ';';
+    }
+
+    return codeContent;
+}
+
+function formatAssignmentStatement(node: ASTNode, config: vscode.WorkspaceConfiguration, indentLevel: number, context: FormattingContext): string {
+    const itemIndent = indentChar.repeat(indentLevel);
+    const always_lvalue_align = config.get<number>('always_lvalue_align', 28);
+    const op_align = config.get<number>('always_op_align', 32);
+
+    const lvalueNode = findChild(node, 'variable_lvalue') || findChild(node, 'net_lvalue');
+    const opNode = findChild(node, 'LE_OP') || findChild(node, 'ASSIGN_EQ');
+    const rvalueNode = node.children?.find(c => c.name.endsWith('expression') || c.name === 'primary' || c.name === 'concatenation' || c.name === 'system_task_call');
+    
+    let codePart;
+    if (lvalueNode && opNode && rvalueNode) {
+        const lvalue = reconstructExpressionText(lvalueNode, context);
+        const op = opNode.value || '<=';
+        const rvalue = reconstructExpressionText(rvalueNode, context);
+        
+        let line = itemIndent + lvalue;
+        line += ' '.repeat(Math.max(1, always_lvalue_align - line.length)) + op;
+        line += ' '.repeat(Math.max(1, op_align - line.length)) + rvalue;
+        codePart = line;
+    } else {
+        codePart = `${itemIndent}${extractOriginalText(node, context.originalText).trim()}`;
+    }
+    
+    return codePart;
+}
+
+function formatSimpleStatement(node: ASTNode, config: vscode.WorkspaceConfiguration, indentLevel: number, context: FormattingContext): string {
+    const itemIndent = indentChar.repeat(indentLevel);
+    const rawStatementText = extractOriginalText(node, context.originalText).trim();
+    return itemIndent + rawStatementText;
+}
+
+function findAndExtractFirstLineComment(node: ASTNode | undefined, context: FormattingContext): string {
+    if (!node) return '';
+
+    if (node.leadingComments && node.leadingComments.length > 0) {
+        const comment = node.leadingComments[0];
+        if (comment.text.startsWith('//') && !context.processedCommentIndices.has(comment.originalTokenIndex)) {
+            context.processedCommentIndices.add(comment.originalTokenIndex);
+            return ' ' + comment.text.trim();
+        }
+    }
+    
+    if (node.children && node.children.length > 0) {
+        return findAndExtractFirstLineComment(node.children[0], context);
+    }
+    
+    return '';
 }
 
 function formatBeginEnd(node: ASTNode, config: vscode.WorkspaceConfiguration, indentLevel: number, context: FormattingContext, style: StatementStyle): string {
     const baseIndent = indentChar.repeat(indentLevel);
-    let trailingCommentOnBegin = '';
-    const statementsInBlock = node.children?.filter(c => c.name === 'statement') || [];
-    const firstStatementWrapper = statementsInBlock[0];
-    if (style.isKnrStyle && firstStatementWrapper) {
-        trailingCommentOnBegin = findAndStealBeginComment(firstStatementWrapper, context);
+    const innerIndentLevel = indentLevel + 1;
+    let content = (style.isKnrStyle ? '' : `\n${baseIndent}`) + 'begin';
+
+    const beginNode = findChild(node, 'BEGIN');
+    let trailingCommentText = beginNode ? formatTrailingComments(beginNode.trailingComments, context) : '';
+    
+    // **THE ULTIMATE FIX IS HERE**: Iterate over ALL children between BEGIN and END, not just 'statement' nodes.
+    const children = node.children || [];
+    const beginIndex = children.findIndex(c => c.name === 'BEGIN');
+    const endIndex = children.findIndex(c => c.name === 'END');
+    
+    const executableNodes = children.slice(beginIndex + 1, endIndex);
+
+    if (!trailingCommentText && executableNodes.length > 0) {
+        trailingCommentText = findAndExtractFirstLineComment(executableNodes[0], context);
     }
-    let content = style.isKnrStyle ? 'begin' + trailingCommentOnBegin : `\n${baseIndent}begin`;
-    if (statementsInBlock.length > 0) {
-        const formattedStatements = statementsInBlock
-            .map(s => formatStatement(s, config, indentLevel + 1, context, {}))
-            .filter(Boolean)
-            .join('\n');
-        if (formattedStatements) {
-            content += '\n' + formattedStatements + '\n' + baseIndent;
+    
+    if (trailingCommentText) {
+        content += trailingCommentText;
+    }
+
+    if (executableNodes.length > 0) {
+        const formattedStatements = executableNodes.map(sNode => 
+            formatExecutableNode(sNode, config, innerIndentLevel, context, {})
+        ).filter(Boolean).join('\n');
+        
+        if (formattedStatements.trim()) {
+            content += '\n' + formattedStatements;
         }
     }
-    content += 'end';
+    
+    const endNode = children[endIndex];
+    let endPart = 'end';
+    let leadingCommentsOnEnd = '';
+
+    if (endNode) {
+        const innerIndentStr = indentChar.repeat(innerIndentLevel);
+        leadingCommentsOnEnd = formatLeadingComments(endNode.leadingComments, innerIndentStr, context);
+
+        const trailingCommentOnEnd = formatTrailingComments(endNode.trailingComments, context);
+        if (trailingCommentOnEnd) {
+            endPart += ' ' + trailingCommentOnEnd;
+        }
+    }
+    
+    if (leadingCommentsOnEnd) {
+        content += '\n' + leadingCommentsOnEnd.trimEnd();
+    }
+    
+    if (executableNodes.length > 0 && content.includes('\n')) {
+         content += '\n' + baseIndent;
+    } else if (!content.includes('\n') && content.trim() === 'begin') {
+         content += ' ';
+    }
+   
+    content += endPart;
+
+    const trailingCommentOnBlock = formatTrailingComments(node.trailingComments, context);
+    if (trailingCommentOnBlock) {
+         content += ' ' + trailingCommentOnBlock;
+    }
+
     return content;
 }
 
 function formatIfStatement(node: ASTNode, config: vscode.WorkspaceConfiguration, indentLevel: number, context: FormattingContext, style: StatementStyle): string {
     const baseIndent = indentChar.repeat(indentLevel);
     const ifIndentStr = style.isChainedIf ? '' : baseIndent;
+    
+    const ifNode = findChild(node, 'IF');
+    if (!ifNode) return extractOriginalText(node, context.originalText).trim();
+
     const ifChildren = node.children || [];
-    const lparenIndex = ifChildren.findIndex(c => c.name === 'LPAREN');
-    const rparenIndex = ifChildren.findIndex(c => c.name === 'RPAREN');
-    const conditionNodes = ifChildren.slice(lparenIndex + 1, rparenIndex);
-    const conditionText = conditionNodes.map(n => reconstructExpressionText(n, context)).join(' ');
+    const conditionPartEndIndex = ifChildren.findIndex(c => c.name === 'RPAREN');
+    if (conditionPartEndIndex === -1) return `${ifIndentStr}if (/* parse error */);`;
+
+    const conditionPartNodes = ifChildren.slice(ifChildren.indexOf(ifNode), conditionPartEndIndex + 1);
+    let content = ifIndentStr + reconstructExpressionText({ name: 'temp', children: conditionPartNodes }, context);
+
+    const rParenNode = ifChildren[conditionPartEndIndex];
+    if (rParenNode) {
+        const trailingCommentOnCondition = formatTrailingComments(rParenNode.trailingComments, context);
+        if (trailingCommentOnCondition) {
+            content += ' ' + trailingCommentOnCondition;
+        }
+    }
+    
     const elseTokenIndex = ifChildren.findIndex(c => c.name === 'ELSE');
-    const thenClause = ifChildren[rparenIndex + 1];
+    const thenClause = ifChildren[conditionPartEndIndex + 1];
     const elseClause = (elseTokenIndex !== -1) ? ifChildren[elseTokenIndex + 1] : undefined;
 
-    let content = ifIndentStr + 'if (' + conditionText + ')';
-
     if (thenClause && thenClause.name === 'statement') {
-        content += ' ' + formatStatement(thenClause, config, indentLevel, context, { isKnrStyle: true });
+        const bodyContent = formatStatement(thenClause, config, indentLevel, context, { isKnrStyle: true });
+        content += ' ' + bodyContent.trim();
     } else {
         content += ';';
     }
@@ -617,186 +853,93 @@ function formatIfStatement(node: ASTNode, config: vscode.WorkspaceConfiguration,
     if (elseClause && elseClause.name === 'statement') {
         const isElseIf = elseClause.children?.some(c => c.name === 'IF');
         content += `\n${baseIndent}else`;
-        if (isElseIf) {
-            content += ' ' + formatStatement(elseClause, config, indentLevel, context, { isChainedIf: true });
-        } else {
-            content += ' ' + formatStatement(elseClause, config, indentLevel, context, { isKnrStyle: true });
+        const elseNode = findChild(node,'ELSE');
+        if(elseNode?.trailingComments){
+            const trailingOnElse = formatTrailingComments(elseNode.trailingComments, context);
+            if(trailingOnElse){
+                content += " " + trailingOnElse;
+            }
         }
+        
+        const bodyContent = formatStatement(elseClause, config, indentLevel, context, { isChainedIf: isElseIf, isKnrStyle: !isElseIf });
+        content += ' ' + bodyContent.trim();
     }
+    
+    const trailingCommentOnIf = formatTrailingComments(node.trailingComments, context);
+    if(trailingCommentOnIf){
+        content += " " + trailingCommentOnIf;
+    }
+
     return content;
 }
 
-function formatForStatement(node: ASTNode, config: vscode.WorkspaceConfiguration, indentLevel: number, context: FormattingContext, style: StatementStyle = {}): string {
+function formatForStatement(node: ASTNode, config: vscode.WorkspaceConfiguration, indentLevel: number, context: FormattingContext, style: StatementStyle): string {
     const baseIndent = indentChar.repeat(indentLevel);
-    const forChildren = node.children || [];
-    const lparenIndex = forChildren.findIndex(c => c.name === 'LPAREN');
-    const firstSemiIndex = forChildren.findIndex(c => c.name === 'SEMI');
-    const secondSemiIndex = forChildren.findIndex((c, i) => c.name === 'SEMI' && i > firstSemiIndex);
-    const rparenIndex = forChildren.findIndex(c => c.name === 'RPAREN');
-    if (lparenIndex === -1 || firstSemiIndex === -1 || secondSemiIndex === -1 || rparenIndex === -1 || forChildren.length <= rparenIndex + 1) {
-        return baseIndent + extractOriginalText(node, context.originalText);
-    }
-    const initNodes = forChildren.slice(lparenIndex + 1, firstSemiIndex);
-    const condNodes = forChildren.slice(firstSemiIndex + 1, secondSemiIndex);
-    const stepNodes = forChildren.slice(secondSemiIndex + 1, rparenIndex);
-    const initPart = initNodes.map(n => reconstructExpressionText(n, context)).join(' ');
-    const condPart = condNodes.map(n => reconstructExpressionText(n, context)).join(' ');
-    const stepPart = stepNodes.map(n => reconstructExpressionText(n, context)).join(' ');
-    const headerContent = baseIndent + `for (${initPart}; ${condPart}; ${stepPart})`;
-    const bodyStatementNode = forChildren[rparenIndex + 1];
-    const bodyContent = formatStatement(bodyStatementNode, config, indentLevel, context, { isKnrStyle: true });
-    return headerContent + ' ' + bodyContent;
-}
-
-// **MODIFICATION - Final implementation for instantiation formatting**
-
-interface LineInfo {
-    node: ASTNode;
-    leadingComments: CommentInfo[];
-    trailingComments: CommentInfo[];
-}
-
-/**
- * Pre-processes a list of items (parameters or ports) to re-associate comments.
- * Mis-attributed leading comments (like line-end comments from the previous line)
- * are moved to the trailing comments of the correct (previous) node.
- * @param items - The list of AST nodes (e.g., named_parameter_assignment).
- * @returns A list of processed LineInfo objects with corrected comment associations.
- */
-function reassociateComments(items: ASTNode[]): LineInfo[] {
-    if (!items || items.length === 0) return [];
-
-    const lineInfos: LineInfo[] = items.map(item => ({
-        node: item,
-        leadingComments: [...(item.leadingComments || [])],
-        trailingComments: [...(item.trailingComments || [])]
-    }));
-
-    for (let i = 0; i < lineInfos.length - 1; i++) {
-        const currentInfo = lineInfos[i];
-        const nextInfo = lineInfos[i + 1];
-        
-        const misattributedComments = nextInfo.leadingComments.filter(comment => 
-            comment.text.startsWith('//')
-        );
-
-        if (misattributedComments.length > 0) {
-            currentInfo.trailingComments.push(...misattributedComments);
-            nextInfo.leadingComments = nextInfo.leadingComments.filter(c => !misattributedComments.includes(c));
-        }
-    }
-    return lineInfos;
-}
-
-function formatInstantiationParameters(node: ASTNode, config: vscode.WorkspaceConfiguration, indentLevel: number, context: FormattingContext): string {
-    const indent = indentChar.repeat(indentLevel);
-    const paramIndent = indentChar.repeat(indentLevel + 1);
     
-    const listNode = findChild(node, 'list_of_param_assignments');
-    if (!listNode || !listNode.children) return '#()';
+    const forNode = findChild(node, 'FOR');
+    if (!forNode) return extractOriginalText(node, context.originalText).trim();
+    
+    const forChildren = node.children || [];
+    const rParenIndex = forChildren.findIndex(c => c.name === 'RPAREN');
 
-    // **FIX: Corrected function name from 'allListChildren' to 'findAllChildren'**
-    const paramAssignments = findAllChildren(listNode, 'named_parameter_assignment');
-    if (paramAssignments.length === 0) return '#()';
+    if (rParenIndex === -1) {
+        return baseIndent + extractOriginalText(node, context.originalText).trim();
+    }
+    
+    const headerNodes = forChildren.slice(forChildren.indexOf(forNode), rParenIndex + 1);
+    let headerContent = baseIndent + reconstructExpressionText({ name: 'temp', children: headerNodes }, context);
 
-    const inst_param_align_lparen = config.get<number>('inst_param_align_lparen', 40);
-    const inst_param_align_rparen = config.get<number>('inst_param_align_rparen', 80);
-
-    const processedInfos = reassociateComments(paramAssignments);
-
-    const resultLines: string[] = [];
-    for (let i = 0; i < processedInfos.length; i++) {
-        const info = processedInfos[i];
-        const assign = info.node;
-
-        // Print any genuine leading comments (like block comments) first.
-        const leadingCommentText = formatLeadingComments(info.leadingComments, paramIndent, context);
-        if (leadingCommentText.trim()) {
-            resultLines.push(leadingCommentText.trimEnd());
+    const rParenNode = forChildren[rParenIndex];
+    if (rParenNode) {
+        const trailingCommentOnHeader = formatTrailingComments(rParenNode.trailingComments, context);
+        if(trailingCommentOnHeader) {
+            headerContent += ' ' + trailingCommentOnHeader;
         }
-        
-        // Build the code line.
-        const paramName = getRawNodeText(findChild(assign, 'IDENTIFIER'));
-        const paramValue = reconstructExpressionText(findChild(assign, 'primary'), context);
-        
-        let codeLine = `${paramIndent}.${paramName}`;
-        codeLine += ' '.repeat(Math.max(1, inst_param_align_lparen - codeLine.length)) + `(${paramValue}`;
-        codeLine += ' '.repeat(Math.max(1, inst_param_align_rparen - codeLine.length - 1)) + ')';
-        
-        const isLast = i === processedInfos.length - 1;
-        codeLine += isLast ? '' : ',';
-        
-        // Format all trailing comments.
-        const allTrailingComments = [...info.trailingComments];
-        const rparenNode = findChild(assign, 'RPAREN');
-        if (rparenNode?.trailingComments) {
-            allTrailingComments.push(...rparenNode.trailingComments);
-        }
-        const trailingCommentText = formatTrailingComments(allTrailingComments, context);
-
-        if (trailingCommentText) {
-            codeLine += ' ' + trailingCommentText;
-        }
-
-        resultLines.push(codeLine.trimEnd());
     }
 
-    return `#(\n${resultLines.join('\n')}\n${indent})`;
+    const bodyStatementNode = forChildren[rParenIndex + 1];
+    const bodyContent = formatStatement(bodyStatementNode, config, indentLevel, context, { isKnrStyle: true });
+    
+    let result = headerContent + ' ' + bodyContent.trim();
+    
+    const trailingCommentOnFor = formatTrailingComments(node.trailingComments, context);
+    if(trailingCommentOnFor){
+        result += " " + trailingCommentOnFor;
+    }
+
+    return result;
 }
 
-function formatInstantiationPorts(node: ASTNode, config: vscode.WorkspaceConfiguration, indentLevel: number, context: FormattingContext): string {
-    const indent = indentChar.repeat(indentLevel);
-    const portIndent = indentChar.repeat(indentLevel + 1);
+function formatRepeatStatement(node: ASTNode, config: vscode.WorkspaceConfiguration, indentLevel: number, context: FormattingContext, style: StatementStyle): string {
+    const baseIndent = indentChar.repeat(indentLevel);
 
-    const listNode = findChild(node, 'list_of_port_connections');
-    if (!listNode || !listNode.children) return '()';
+    const repeatNode = findChild(node, 'REPEAT');
+    if (!repeatNode) return extractOriginalText(node, context.originalText).trim();
 
-    const portConnections = findAllChildren(listNode, 'named_port_connection');
-    if (portConnections.length === 0) return '()';
-
-    const inst_port_align_name = config.get<number>('inst_port_align_name', 24);
-    const inst_port_align_lparen = config.get<number>('inst_port_align_lparen', 40);
-    const inst_port_align_rparen = config.get<number>('inst_port_align_rparen', 80);
-
-    const processedInfos = reassociateComments(portConnections);
-
-    const resultLines: string[] = [];
-    for (let i = 0; i < processedInfos.length; i++) {
-        const info = processedInfos[i];
-        const conn = info.node;
-        
-        // Print any genuine leading comments (like block comments) first.
-        const leadingCommentText = formatLeadingComments(info.leadingComments, portIndent, context);
-        if (leadingCommentText.trim()) {
-            resultLines.push(leadingCommentText.trimEnd());
-        }
-
-        // Build the code line.
-        const portName = getRawNodeText(findChild(conn, 'IDENTIFIER'));
-        const portSignal = reconstructExpressionText(findChild(conn, 'primary') || findChild(conn, 'logical_and_expression'), context);
-        
-        let codeLine = `${portIndent}.${portName}`;
-        codeLine += ' '.repeat(Math.max(1, inst_port_align_name - codeLine.length));
-        codeLine += ' '.repeat(Math.max(1, inst_port_align_lparen - codeLine.length)) + `(${portSignal}`;
-        codeLine += ' '.repeat(Math.max(1, inst_port_align_rparen - codeLine.length - 1)) + ')';
-
-        const isLast = i === processedInfos.length - 1;
-        codeLine += isLast ? '' : ',';
-        
-        // Format all trailing comments.
-        const allTrailingComments = [...info.trailingComments];
-        const rparenNode = findChild(conn, 'RPAREN');
-        if (rparenNode?.trailingComments) {
-            allTrailingComments.push(...rparenNode.trailingComments);
-        }
-        const trailingCommentText = formatTrailingComments(allTrailingComments, context);
-        if (trailingCommentText) {
-            codeLine += ' ' + trailingCommentText;
-        }
-        
-        resultLines.push(codeLine.trimEnd());
+    const children = node.children || [];
+    const rParenIndex = children.findIndex(c => c.name === 'RPAREN');
+    if (rParenIndex === -1) {
+        return baseIndent + extractOriginalText(node, context.originalText).trim();
     }
-    return `(\n${resultLines.join('\n')}\n${indent})`;
+
+    const headerNodes = children.slice(children.indexOf(repeatNode), rParenIndex + 1);
+    let headerContent = baseIndent + reconstructExpressionText({ name: 'temp', children: headerNodes }, context);
+    
+    const rParenNode = children[rParenIndex];
+    if (rParenNode) {
+        const trailingComment = formatTrailingComments(rParenNode.trailingComments, context);
+        if (trailingComment) {
+            headerContent += ' ' + trailingComment;
+        }
+    }
+
+    const bodyStatementNode = children[rParenIndex + 1];
+    if (bodyStatementNode && bodyStatementNode.name === 'statement') {
+        const bodyContent = formatStatement(bodyStatementNode, config, indentLevel, context, { isKnrStyle: true });
+        return headerContent + ' ' + bodyContent.trim();
+    }
+
+    return headerContent + ';';
 }
 
 function formatModuleInstantiation(node: ASTNode, config: vscode.WorkspaceConfiguration, indentLevel: number, context: FormattingContext): string {
@@ -823,6 +966,98 @@ function formatModuleInstantiation(node: ASTNode, config: vscode.WorkspaceConfig
     return content + ';\n\n';
 }
 
+function formatInstantiationParameters(node: ASTNode, config: vscode.WorkspaceConfiguration, indentLevel: number, context: FormattingContext): string {
+    const indent = indentChar.repeat(indentLevel);
+    const paramIndent = indentChar.repeat(indentLevel + 1);
+    
+    const listNode = findChild(node, 'list_of_param_assignments');
+    if (!listNode || !listNode.children) return '#()';
+
+    const paramAssignments = findAllChildren(listNode, 'named_parameter_assignment');
+    if (paramAssignments.length === 0) return '#()';
+
+    reassociateTrailingLineComments(paramAssignments);
+
+    const inst_param_align_lparen = config.get<number>('inst_param_align_lparen', 40);
+    const inst_param_align_rparen = config.get<number>('inst_param_align_rparen', 80);
+
+    const resultLines: string[] = [];
+    for (let i = 0; i < paramAssignments.length; i++) {
+        const assign = paramAssignments[i];
+        
+        let currentLine = formatLeadingComments(assign.leadingComments, paramIndent, context).trimEnd();
+
+        const paramName = getRawNodeText(findChild(assign, 'IDENTIFIER'));
+        const paramValue = reconstructExpressionText(findChild(assign, 'primary'), context);
+        
+        let codePart = `${paramIndent}.${paramName}`;
+        codePart += ' '.repeat(Math.max(1, inst_param_align_lparen - codePart.length)) + `(${paramValue}`;
+        codePart += ' '.repeat(Math.max(1, inst_param_align_rparen - codePart.length - 1)) + ')';
+        
+        if(currentLine) currentLine += `\n${codePart}`;
+        else currentLine = codePart;
+
+        const isLast = i === paramAssignments.length - 1;
+        currentLine += isLast ? '' : ',';
+        
+        const trailingCommentText = formatTrailingComments(assign.trailingComments, context);
+
+        if (trailingCommentText) {
+            currentLine += ' ' + trailingCommentText;
+        }
+
+        resultLines.push(currentLine.trimEnd());
+    }
+
+    return `#(\n${resultLines.join('\n')}\n${indent})`;
+}
+
+function formatInstantiationPorts(node: ASTNode, config: vscode.WorkspaceConfiguration, indentLevel: number, context: FormattingContext): string {
+    const indent = indentChar.repeat(indentLevel);
+    const portIndent = indentChar.repeat(indentLevel + 1);
+
+    const listNode = findChild(node, 'list_of_port_connections');
+    if (!listNode || !listNode.children) return '()';
+
+    const portConnections = findAllChildren(listNode, 'named_port_connection');
+    if (portConnections.length === 0) return '()';
+
+    reassociateTrailingLineComments(portConnections);
+
+    const inst_port_align_name = config.get<number>('inst_port_align_name', 24);
+    const inst_port_align_lparen = config.get<number>('inst_port_align_lparen', 40);
+    const inst_port_align_rparen = config.get<number>('inst_port_align_rparen', 80);
+
+    const resultLines: string[] = [];
+    for (let i = 0; i < portConnections.length; i++) {
+        const conn = portConnections[i];
+        
+        let currentLine = formatLeadingComments(conn.leadingComments, portIndent, context).trimEnd();
+
+        const portName = getRawNodeText(findChild(conn, 'IDENTIFIER'));
+        const portSignal = reconstructExpressionText(findChild(conn, 'primary') || findChild(conn, 'logical_and_expression'), context);
+        
+        let codePart = `${portIndent}.${portName}`;
+        codePart += ' '.repeat(Math.max(1, inst_port_align_name - codePart.length));
+        codePart += ' '.repeat(Math.max(1, inst_port_align_lparen - codePart.length)) + `(${portSignal}`;
+        codePart += ' '.repeat(Math.max(1, inst_port_align_rparen - codePart.length - 1)) + ')';
+
+        if (currentLine) currentLine += `\n${codePart}`;
+        else currentLine = codePart;
+
+        const isLast = i === portConnections.length - 1;
+        currentLine += isLast ? '' : ',';
+        
+        const trailingCommentText = formatTrailingComments(conn.trailingComments, context);
+        if (trailingCommentText) {
+            currentLine += ' ' + trailingCommentText;
+        }
+        
+        resultLines.push(currentLine.trimEnd());
+    }
+    return `(\n${resultLines.join('\n')}\n${indent})`;
+}
+
 // =========================================================================
 // REGEX-BASED FALLBACK MODE FUNCTIONS (COMPLETE AND UNABBREVIATED)
 // =========================================================================
@@ -831,7 +1066,7 @@ function alignVerilogCodeRegexOnly(text: string, config: vscode.WorkspaceConfigu
     const alignedLines = lines.map(line => {
       const trimmedLine = line.trim();
       if (trimmedLine.startsWith('/*') || trimmedLine.startsWith('//') || trimmedLine === '') return line;
-      const isTwoDimArray = /^\s*(reg|wire)\s*(signed|unsigned)?\s*(\[[^\]]+\])\s*[^;,\s]+\s*(\[[^\]]+\])/.test(line);
+      const isTwoDimArray = /^\s*(reg|wire)\s*(signed|unsigned)?\s*($$[^$$]+\])\s*[^;,\s]+\s*($$[^$$]+\])/.test(line);
       if (isTwoDimArray) return alignTwoDimArrayDeclaration(line, config);
       if (trimmedLine.startsWith('input') || trimmedLine.startsWith('output') || trimmedLine.startsWith('inout')) return alignPortDeclarationRegex(line, config);
       if (trimmedLine.startsWith('reg') || trimmedLine.startsWith('wire') || trimmedLine.startsWith('integer') || trimmedLine.startsWith('real')) return alignRegWireIntegerDeclaration(line, config);
@@ -847,7 +1082,7 @@ function alignPortDeclarationRegex(line: string, config: vscode.WorkspaceConfigu
     const port_num3 = config.get<number>('port_num3', 25);
     const port_num4 = config.get<number>('port_num4', 50);
     const port_num5 = config.get<number>('port_num5', 80);
-    const regex = /^\s*(input\b|output\b|inout\b)\s*(reg|wire)?\s*(signed|unsigned)?\s*(\[[^\]]+\])?\s*([^;,\s]+)\s*([,;])?\s*(.*)/;
+    const regex = /^\s*(input\b|output\b|inout\b)\s*(reg|wire)?\s*(signed|unsigned)?\s*($$[^$$]+\])?\s*([^;,\s]+)\s*([,;])?\s*(.*)/;
     const match = line.match(regex);
     if (!match) return line;
     const indent = line.match(/^\s*/)?.[0] || '';
@@ -880,7 +1115,7 @@ function alignRegWireIntegerDeclaration(line: string, config: vscode.WorkspaceCo
     const signal_num3 = config.get<number>('signal_num3', 25);
     const signal_num4 = config.get<number>('signal_num4', 50);
     const signal_num5 = config.get<number>('signal_num5', 80);
-    const regex = /^\s*(reg\b|wire\b|integer\b|real\b)\s*(signed|unsigned)?\s*(\[[^\]]+\])?\s*([^;,\s]+)\s*([,;])?\s*(.*)/;
+    const regex = /^\s*(reg\b|wire\b|integer\b|real\b)\s*(signed|unsigned)?\s*($$[^$$]+\])?\s*([^;,\s]+)\s*([,;])?\s*(.*)/;
     const match = line.match(regex);
     if (!match) return line;
     const indent = line.match(/^\s*/)?.[0] || '';
@@ -957,7 +1192,7 @@ function alignAssignDeclaration(line: string, config: vscode.WorkspaceConfigurat
 function alignInstanceSignal(line: string, config: vscode.WorkspaceConfiguration): string {
     const inst_num2 = config.get<number>('inst_num2', 40);
     const inst_num3 = config.get<number>('inst_num3', 80);
-    const regex = /^\s*\.([^\s\(]+)\s*\(([^)]*)\)\s*([,])?\s*(.*)/;
+    const regex = /^\s*\.([^\s$]+)\s*\(([^)]*)$\s*([,])?\s*(.*)/;
     const match = line.match(regex);
     if (!match) return line;
     const indent = line.match(/^\s*/)?.[0] || '';
@@ -981,7 +1216,7 @@ function alignTwoDimArrayDeclaration(line: string, config: vscode.WorkspaceConfi
     const array_num4 = config.get<number>('array_num4', 50);
     const array_num5 = config.get<number>('array_num5', 60);
     const array_num6 = config.get<number>('array_num6', 80);
-    const regex = /^\s*(reg|wire)\s*(signed|unsigned)?\s*(\[[^\]]+\])\s*([^;,\s]+\s*(\[[^\]]+\]))\s*([;])?\s*(.*)/;
+    const regex = /^\s*(reg|wire)\s*(signed|unsigned)?\s*($$[^$$]+\])\s*([^;,\s]+\s*($$[^$$]+\]))\s*([;])?\s*(.*)/;
     const match = line.match(regex);
     if (!match) return line;
     const indent = line.match(/^\s*/)?.[0] || '';
