@@ -102,41 +102,47 @@ function extractOriginalText(node: ASTNode, fullText: string): string {
 function reconstructExpressionText(node: ASTNode | undefined, context: FormattingContext): string {
     if (!node) return '';
 
-    if (node.name === 'range_expression') {
-        const colonIndex = node.children?.findIndex(c => c.name === 'COLON');
-        if (colonIndex !== undefined && colonIndex > 0) {
-            const msbNode = node.children![colonIndex - 1];
-            const lsbNode = node.children![colonIndex + 1];
-            const msbText = reconstructExpressionText(msbNode, context);
-            const lsbText = reconstructExpressionText(lsbNode, context);
-            return alignBitWidthDeclarationRegex(`${msbText}:${lsbText}`, context.config);
-        }
-    }
-
+    // 对于带有值的叶子节点，直接返回值
     if (node.value !== undefined) {
-        if (node.name === 'NUMBER') return node.value.trim();
+        // 对于操作符和关键字，我们不需要额外的空格处理，直接返回值
+        // 对于标识符和数字，我们也直接返回值，空格由父节点处理
         return node.value;
     }
 
+    // 对于没有值但有子节点的父节点，递归重组
     if (node.children && node.children.length > 0) {
         let result = '';
-        const noSpaceAfter = new Set(['[', '{', '.', '(', '`', '\'', '!', '~', '$']); 
-        const noSpaceBefore = new Set(['[', ']', '{', '}', '.', '(', ')', ',', ';', ':', '\'']); 
+        // 定义哪些 token 前后不需要空格
+        const noSpaceAfter = new Set(['[', '(', '`', '$', '.']);
+        const noSpaceBefore = new Set(['[', ']', '(', ')', ',', ';', ':', '.']);
         
-        for (const child of node.children) {
-            const currentToken = reconstructExpressionText(child, context);
-            if (!currentToken) continue;
+        for (let i = 0; i < node.children.length; i++) {
+            const child = node.children[i];
+            const currentTokenText = reconstructExpressionText(child, context);
+            
+            if (!currentTokenText) continue;
+
             if (result.length > 0) {
                 const lastCharOfResult = result.charAt(result.length - 1);
-                const firstCharOfCurrent = currentToken.charAt(0);
+                const firstCharOfCurrent = currentTokenText.charAt(0);
+                
+                // 决定是否在两个 token 之间加空格
+                // 规则：除非前后 token 在 "no space" 集合中，否则就加空格
                 if (!(noSpaceAfter.has(lastCharOfResult) || noSpaceBefore.has(firstCharOfCurrent))) {
-                    result += ' ';
+                     // 特殊处理减号 '-'，如果它代表负数而不是减法操作符，则不加空格
+                    if (currentTokenText === '-' && (noSpaceAfter.has(lastCharOfResult) || i === 0)) {
+                         // 这很可能是一个负数，比如 `(-1)` 或 `[-1:0]`
+                    } else {
+                        result += ' ';
+                    }
                 }
             }
-            result += currentToken;
+            result += currentTokenText;
         }
         return result;
     }
+    
+    // 如果节点既没有值也没有子节点，返回空字符串
     return '';
 }
 
@@ -483,35 +489,91 @@ function formatLocalParameterDeclarationCode(decl: ASTNode, config: vscode.Works
     const indentStr = indentChar.repeat(indentLevel);
     const localparam_num2 = config.get<number>('localparam_num2', 25);
     const localparam_num3 = config.get<number>('localparam_num3', 50);
+
     const keyword = getRawNodeText(findChild(decl, 'PARAMETER')) || getRawNodeText(findChild(decl, 'LOCALPARAM')) || 'parameter';
-    const identifier = reconstructExpressionText(findChild(decl, 'list_of_identifiers'), context);
-    const value = reconstructExpressionText(findChild(decl, 'primary'), context);
+
+    // --- 核心修复：根据提供的 AST 结构进行精准查找 ---
+
+    // 1. 获取标识符 (参数名)
+    // 根据AST: decl -> variable_with_dimensions -> IDENTIFIER
+    let identifier = '';
+    const varWithDimNode = findChild(decl, 'variable_with_dimensions');
+    if (varWithDimNode) {
+        identifier = getRawNodeText(findChild(varWithDimNode, 'IDENTIFIER'));
+    } else {
+        // 作为备用方案，如果AST结构有变，尝试旧的查找方式
+        identifier = getRawNodeText(findChild(decl, 'IDENTIFIER')) || 
+                     reconstructExpressionText(findChild(decl, 'list_of_identifiers'), context);
+    }
+
+    // 2. 获取值
+    // 根据AST: 值在 'primary' 或 'constant_expression' 节点中
+    const valueNode = findChild(decl, 'primary') || findChild(decl, 'constant_expression');
+    const value = valueNode ? reconstructExpressionText(valueNode, context) : '';
+    
+    // --- 修复结束 ---
     
     let currentLine = indentStr + keyword;
     currentLine += ' '.repeat(Math.max(1, localparam_num2 - currentLine.length)) + identifier;
-    currentLine += ' '.repeat(Math.max(1, localparam_num3 - currentLine.length)) + '= ' + value;
+
+    // 只有在成功提取到值的情况下才添加 '=' 和值
+    if (value) {
+        currentLine += ' '.repeat(Math.max(1, localparam_num3 - currentLine.length)) + '= ' + value;
+    }
+    
     return currentLine;
 }
 
 function formatSignalsDeclarationCode(decl: ASTNode, config: vscode.WorkspaceConfiguration, indentLevel: number, context: FormattingContext): string {
     const indentStr = indentChar.repeat(indentLevel);
+    
+    // 提取通用部分
     let type = '';
     if (decl.name === 'reg_declaration') type = 'reg';
     else if (decl.name === 'wire_declaration') type = 'wire';
     else if (decl.name === 'integer_declaration') type = 'integer';
     else if (decl.name === 'real_declaration') type = 'real';
-
+    
     const signed = getRawNodeText(findChild(decl, 'SIGNED')) || '';
-    const range = reconstructExpressionText(findChild(decl, 'range_expression'), context) || '';
-    const identifier = reconstructExpressionText(findChild(decl, 'list_of_identifiers'), context);
+    
+    // 第一个维度（类型后的维度）
+    const firstRangeNode = findChild(decl, 'range_expression');
+    const firstRange = firstRangeNode ? `[${reconstructExpressionText(firstRangeNode, context).replace(/\[|\]/g, '')}]` : '';
+
+    // 提取标识符和第二个维度
+    let identifier = '';
+    let secondRange = '';
+    const varWithDimNode = findChild(decl, 'variable_with_dimensions');
+    if (varWithDimNode) {
+        // 二维数组或带维度的单维数组
+        identifier = getRawNodeText(findChild(varWithDimNode, 'IDENTIFIER')) || '';
+        const secondRangeNode = findChild(varWithDimNode, 'range_expression');
+        secondRange = secondRangeNode ? `[${reconstructExpressionText(secondRangeNode, context).replace(/\[|\]/g, '')}]` : '';
+    } else {
+        // 普通信号（可能是列表）
+        const idListNode = findChild(decl, 'list_of_identifiers') || findChild(decl, 'variable_lvalue');
+        identifier = idListNode ? reconstructExpressionText(idListNode, context) : '';
+    }
+
+    // 获取对齐配置
     const signal_num2 = config.get<number>('signal_num2', 16);
     const signal_num3 = config.get<number>('signal_num3', 25);
     const signal_num4 = config.get<number>('signal_num4', 50);
+    // 新增一个配置项用于二维数组第二维度的对齐
+    // const signal_num5_array_dim = config.get<number>('signal_num5', 60);
 
+    // 拼接代码行
     let currentLine = indentStr + type;
     currentLine += ' '.repeat(Math.max(1, signal_num2 - currentLine.length)) + signed;
-    currentLine += ' '.repeat(Math.max(1, signal_num3 - currentLine.length)) + range;
+    currentLine += ' '.repeat(Math.max(1, signal_num3 - currentLine.length)) + firstRange;
     currentLine += ' '.repeat(Math.max(1, signal_num4 - currentLine.length)) + identifier;
+    
+    // 如果有第二维度，则添加并对齐
+    if (secondRange) {
+        // currentLine += ' '.repeat(Math.max(1, signal_num5_array_dim - currentLine.length)) + secondRange;
+        currentLine += ' '.repeat(1) + secondRange;//考虑后排空格跟随
+    }
+
     return currentLine;
 }
 
@@ -649,13 +711,21 @@ function formatAlwaysConstruct(node: ASTNode, config: vscode.WorkspaceConfigurat
             bodyContent = formatStatement(statementNode, config, indentLevel, context, { isKnrStyle: true });
         }
     } else if (procTimeControlNode) {
-        // This case handles `always #10 a = b;`
-        bodyContent = formatExecutableNode(procTimeControlNode, config, indentLevel, context, { isKnrStyle: true });
+        // --- 核心修复 ---
+        // 直接处理这个特殊的节点，不再通过 formatExecutableNode
+        bodyContent = formatSimpleStatement(procTimeControlNode, config, indentLevel, context).trim();
+        if (!bodyContent.endsWith(';')) {
+            bodyContent += ';';
+        }
+        // 从 bodyContent 中移除缩进，因为 'always' 已经带了缩进
+        bodyContent = bodyContent.trim();
+        // --- 修复结束 ---
     } else if (statementNode) {
         bodyContent = formatStatement(statementNode, config, indentLevel, context, { isKnrStyle: true });
     }
 
     if (bodyContent.trim()) {
+        // 移除 bodyContent 可能带有的前导缩进
         return content + ' ' + bodyContent.trim() + '\n';
     }
     
@@ -675,10 +745,20 @@ function formatExecutableNode(node: ASTNode, config: vscode.WorkspaceConfigurati
             break;
         case 'procedural_timing_control_statement':
         case 'wait_statement':
+            // 确保简单语句也总是带分号返回
             codeContent = formatSimpleStatement(node, config, indentLevel, context);
+            if (!codeContent.trim().endsWith(';')) {
+                const trailingCommentOnNode = collectAllTrailingComments(node, context);
+                if (trailingCommentOnNode) {
+                    const commentAlign = config.get<number>('always_comment_align', 80);
+                    codeContent += ' '.repeat(Math.max(1, commentAlign - codeContent.length)) + '; ' + trailingCommentOnNode;
+                } else {
+                    codeContent += ';';
+                }
+            }
             break;
         default:
-            // Fallback for any other unexpected top-level executable nodes
+            // Fallback
             codeContent = itemIndent + extractOriginalText(node, context.originalText).trim();
             break;
     }
@@ -686,56 +766,61 @@ function formatExecutableNode(node: ASTNode, config: vscode.WorkspaceConfigurati
     return (leadingComments + codeContent).trimEnd();
 }
 
-
 function formatStatement(node: ASTNode, config: vscode.WorkspaceConfiguration, indentLevel: number, context: FormattingContext, style: StatementStyle = {}): string {
+    const itemIndent = indentChar.repeat(indentLevel);
     const firstSemanticChild = node.children?.find(c => c.name && c.name !== 'SEMI');
+
     if (!firstSemanticChild) {
-        const itemIndent = indentChar.repeat(indentLevel);
         const trailingComment = formatTrailingComments(findChild(node, 'SEMI')?.trailingComments, context);
         return ((style.isChainedIf ? '' : itemIndent) + ';' + (trailingComment ? ' ' + trailingComment : '')).trimEnd();
     }
     
-    let codeContent = '';
+    let codePart = '';
     
     switch (firstSemanticChild.name) {
-        case 'BEGIN': // This is a begin-end block statement
+        case 'BEGIN':
             return formatBeginEnd(node, config, indentLevel, context, style);
         case 'IF':
             return formatIfStatement(node, config, indentLevel, context, style);
+        // ============= NEWLY ADDED CASE =============
+        case 'CASE':
+            return formatCaseStatement(node, config, indentLevel, context, style);
+        // ============================================
         case 'FOR':
             return formatForStatement(node, config, indentLevel, context, style);
         case 'REPEAT':
             return formatRepeatStatement(node, config, indentLevel, context, style);
         
         case 'blocking_or_nonblocking_assignment':
-            codeContent = formatAssignmentStatement(firstSemanticChild, config, indentLevel, context);
+            codePart = formatAssignmentStatement(firstSemanticChild, config, indentLevel, context);
             break;
         
         default:
-            // This covers system calls like $display, $stop etc.
-            codeContent = formatSimpleStatement(node, config, indentLevel, context);
+            codePart = formatSimpleStatement(node, config, indentLevel, context);
+            // 对于simpleStatement，它可能已经包含了分号，也可能没有，我们需要统一处理
+            if (codePart.trim().endsWith(';')) {
+                codePart = codePart.trim().slice(0, -1).trimEnd();
+            }
             break;
     }
 
+    // 1. 先拼接代码和分号
+    let finalLine = codePart + ';';
+
+    // 2. 然后处理所有的行尾注释 (从 statement 节点和 SEMI 节点收集)
     const trailingCommentOnNode = formatTrailingComments(node.trailingComments, context);
     const semiNode = findChild(node, 'SEMI');
     const semiTrailingComment = semiNode ? formatTrailingComments(semiNode.trailingComments, context) : '';
-    const finalComment = [trailingCommentOnNode, semiTrailingComment].filter(Boolean).join(' ');
+    const finalComment = [trailingCommentOnNode, semiTrailingComment].filter(Boolean).join(' ').trim();
 
+    // 3. 如果有注释，就进行对齐拼接
     if (finalComment) {
         const commentAlign = config.get<number>('always_comment_align', 80);
-        let contentToPad = codeContent;
-        if (contentToPad.endsWith(';')) {
-            contentToPad = contentToPad.slice(0, -1).trimEnd();
-        }
-        codeContent = contentToPad + ' '.repeat(Math.max(1, commentAlign - contentToPad.length)) + finalComment;
+        // 注意：这里我们是对 `finalLine` (已包含分号) 进行填充
+        finalLine += ' '.repeat(Math.max(1, commentAlign - finalLine.length)) + finalComment;
     }
 
-    if (!codeContent.trim().endsWith(';')) {
-        codeContent += ';';
-    }
-
-    return codeContent;
+    return finalLine;
 }
 
 function formatAssignmentStatement(node: ASTNode, config: vscode.WorkspaceConfiguration, indentLevel: number, context: FormattingContext): string {
@@ -747,27 +832,50 @@ function formatAssignmentStatement(node: ASTNode, config: vscode.WorkspaceConfig
     const opNode = findChild(node, 'LE_OP') || findChild(node, 'ASSIGN_EQ');
     const rvalueNode = node.children?.find(c => c.name.endsWith('expression') || c.name === 'primary' || c.name === 'concatenation' || c.name === 'system_task_call');
     
-    let codePart;
+    // --- 核心修复：处理 lvalue 和 rvalue 上的前导注释 ---
+    
+    let codePart = '';
     if (lvalueNode && opNode && rvalueNode) {
+        // 1. 格式化 lvalue 节点的前导注释
+        const leadingCommentsOnLValue = formatLeadingComments(lvalueNode.leadingComments, itemIndent, context);
+        if(leadingCommentsOnLValue) {
+            codePart += leadingCommentsOnLValue;
+        }
+
         const lvalue = reconstructExpressionText(lvalueNode, context);
         const op = opNode.value || '<=';
-        const rvalue = reconstructExpressionText(rvalueNode, context);
+
+        // 2. 格式化 rvalue 节点的前导注释
+        //    (虽然不常见，但为了健壮性也处理一下)
+        const leadingCommentsOnRValue = formatLeadingComments(rvalueNode.leadingComments, ' ', context); // rvalue前不加额外缩进
+        
+        const rvalue = (leadingCommentsOnRValue ? leadingCommentsOnRValue.trim() + ' ' : '') + reconstructExpressionText(rvalueNode, context);
         
         let line = itemIndent + lvalue;
         line += ' '.repeat(Math.max(1, always_lvalue_align - line.length)) + op;
         line += ' '.repeat(Math.max(1, op_align - line.length)) + rvalue;
-        codePart = line;
+        
+        // 如果 lvalue 有前导注释，它们已经被加到 codePart 里了，所以这里要追加
+        codePart += line;
+
     } else {
+        // Fallback
         codePart = `${itemIndent}${extractOriginalText(node, context.originalText).trim()}`;
     }
-    
+
     return codePart;
 }
 
 function formatSimpleStatement(node: ASTNode, config: vscode.WorkspaceConfiguration, indentLevel: number, context: FormattingContext): string {
     const itemIndent = indentChar.repeat(indentLevel);
-    const rawStatementText = extractOriginalText(node, context.originalText).trim();
-    return itemIndent + rawStatementText;
+    // 使用 reconstructExpressionText 替代 extractOriginalText，以获得更纯净的代码部分
+    const statementText = reconstructExpressionText(node, context).trim();
+
+    // 移除可能存在的尾部分号，让上层统一处理
+    if (statementText.endsWith(';')) {
+        return itemIndent + statementText.slice(0, -1).trimEnd();
+    }
+    return itemIndent + statementText;
 }
 
 function findAndExtractFirstLineComment(node: ASTNode | undefined, context: FormattingContext): string {
@@ -948,6 +1056,99 @@ function formatForStatement(node: ASTNode, config: vscode.WorkspaceConfiguration
     return result;
 }
 
+function formatCaseStatement(node: ASTNode, config: vscode.WorkspaceConfiguration, indentLevel: number, context: FormattingContext, style: StatementStyle): string {
+    const baseIndent = indentChar.repeat(indentLevel);
+    
+    const caseNode = findChild(node, 'CASE');
+    if (!caseNode) return extractOriginalText(node, context.originalText).trim();
+
+    const children = node.children || [];
+    const rParenIndex = children.findIndex(c => c.name === 'RPAREN');
+    if (rParenIndex === -1) {
+        return baseIndent + extractOriginalText(node, context.originalText).trim(); // Fallback for parse error
+    }
+
+    // 1. Format "case (...)" header
+    const headerNodes = children.slice(children.findIndex(c => c.name === 'CASE'), rParenIndex + 1);
+    let content = baseIndent + reconstructExpressionText({ name: 'temp', children: headerNodes }, context);
+    
+    const rParenNode = children[rParenIndex];
+    if (rParenNode) {
+        const trailingCommentOnHeader = formatTrailingComments(rParenNode.trailingComments, context);
+        if (trailingCommentOnHeader) {
+            content += ' ' + trailingCommentOnHeader;
+        }
+    }
+    
+    // 2. Format all case items
+    const caseItems = findAllChildren(node, 'case_item');
+    const caseItemIndentStr = indentChar.repeat(indentLevel + 1);
+    // Calculate the absolute column for the colon, based on config and current indent level
+    const colonAlignCol = config.get<number>('case_colon_align', 20) + caseItemIndentStr.length;
+
+    const formattedItems = caseItems.map(item => {
+        const leadingComments = formatLeadingComments(item.leadingComments, caseItemIndentStr, context);
+        
+        // a. Extract conditions (e.g., "1, 2, 3" or "default")
+        const itemChildren = item.children || [];
+        const colonIndex = itemChildren.findIndex(c => c.name === 'COLON');
+        if (colonIndex === -1) return (leadingComments + caseItemIndentStr + "/* parse error */:").trimEnd();
+        
+        const conditionNodes = itemChildren.slice(0, colonIndex);
+        const conditionStr = reconstructExpressionText({ name: 'temp', children: conditionNodes }, context);
+        
+        // b. Align the colon
+        let itemLine = caseItemIndentStr + conditionStr;
+        itemLine += ' '.repeat(Math.max(1, colonAlignCol - itemLine.length)) + ':';
+        
+        // c. Format the statement after the colon
+        const statementNode = itemChildren[colonIndex + 1];
+        if (statementNode) {
+            if (statementNode.name === 'statement_or_null' && findChild(statementNode, 'SEMI')) {
+                // Handle null statement like "default: ;"
+                 itemLine += ';';
+                 const trailingOnSemi = formatTrailingComments(findChild(statementNode, 'SEMI')?.trailingComments, context);
+                 if (trailingOnSemi) itemLine += ' ' + trailingOnSemi;
+            } else if (statementNode.name === 'statement') {
+                // Recursively format the statement body. isKnrStyle=true keeps `begin` on the same line.
+                const bodyContent = formatStatement(statementNode, config, indentLevel + 1, context, { isKnrStyle: true });
+                itemLine += ' ' + bodyContent.trim();
+            } else {
+                 // Fallback for unexpected node types
+                 itemLine += ' ' + extractOriginalText(statementNode, context.originalText).trim();
+            }
+        }
+        
+        const trailingCommentOnItem = formatTrailingComments(item.trailingComments, context);
+        if (trailingCommentOnItem) {
+             itemLine += ' ' + trailingCommentOnItem;
+        }
+
+        return (leadingComments + itemLine).trimEnd();
+
+    }).join('\n');
+
+    content += '\n' + formattedItems;
+
+    // 3. Format "endcase"
+    const endcaseNode = findChild(node, 'ENDCASE');
+    if (endcaseNode) {
+        const leadingComments = formatLeadingComments(endcaseNode.leadingComments, baseIndent, context);
+        if (leadingComments) {
+            content += '\n' + leadingComments.trimEnd();
+        }
+        
+        let endcaseLine = baseIndent + 'endcase';
+        const trailingComment = formatTrailingComments(endcaseNode.trailingComments, context);
+        if (trailingComment) {
+            endcaseLine += ' ' + trailingComment;
+        }
+        content += '\n' + endcaseLine;
+    }
+    
+    return content;
+}
+
 function formatRepeatStatement(node: ASTNode, config: vscode.WorkspaceConfiguration, indentLevel: number, context: FormattingContext, style: StatementStyle): string {
     const baseIndent = indentChar.repeat(indentLevel);
 
@@ -1097,200 +1298,287 @@ function formatInstantiationPorts(node: ASTNode, config: vscode.WorkspaceConfigu
 }
 
 // =========================================================================
-// REGEX-BASED FALLBACK MODE FUNCTIONS (COMPLETE AND UNABBREVIATED)
+// REGEX-BASED FALLBACK MODE FUNCTIONS (COMPLETE AND ENHANCED)
 // =========================================================================
-function alignVerilogCodeRegexOnly(text: string, config: vscode.WorkspaceConfiguration): string {
-    const lines = text.split('\n');
-    const alignedLines = lines.map(line => {
-      const trimmedLine = line.trim();
-      if (trimmedLine.startsWith('/*') || trimmedLine.startsWith('//') || trimmedLine === '') return line;
-      const isTwoDimArray = /^\s*(reg|wire)\s*(signed|unsigned)?\s*($$[^$$]+\])\s*[^;,\s]+\s*($$[^$$]+\])/.test(line);
-      if (isTwoDimArray) return alignTwoDimArrayDeclaration(line, config);
-      if (trimmedLine.startsWith('input') || trimmedLine.startsWith('output') || trimmedLine.startsWith('inout')) return alignPortDeclarationRegex(line, config);
-      if (trimmedLine.startsWith('reg') || trimmedLine.startsWith('wire') || trimmedLine.startsWith('integer') || trimmedLine.startsWith('real')) return alignRegWireIntegerDeclaration(line, config);
-      if (trimmedLine.startsWith('localparam') || trimmedLine.startsWith('parameter')) return alignParamDeclaration(line, config);
-      if (trimmedLine.startsWith('assign')) return alignAssignDeclaration(line, config);
-      if (trimmedLine.startsWith('.')) return alignInstanceSignal(line, config);
-      return line;
-    });
-    return alignedLines.join('\n');
-}
-function alignPortDeclarationRegex(line: string, config: vscode.WorkspaceConfiguration): string {
-    const port_num2 = config.get<number>('port_num2', 16);
-    const port_num3 = config.get<number>('port_num3', 25);
-    const port_num4 = config.get<number>('port_num4', 50);
-    const port_num5 = config.get<number>('port_num5', 80);
-    const regex = /^\s*(input\b|output\b|inout\b)\s*(reg|wire)?\s*(signed|unsigned)?\s*($$[^$$]+\])?\s*([^;,\s]+)\s*([,;])?\s*(.*)/;
-    const match = line.match(regex);
-    if (!match) return line;
-    const indent = line.match(/^\s*/)?.[0] || '';
-    const type = match[1].trim();
-    const regKeyword = (match[2] || '').trim();
-    const signedUnsigned = (match[3] || '').trim();
-    const width = (match[4] || '').trim();
-    const signal = match[5].trim();
-    const endSymbol = (match[6] || '').trim();
-    const comment = (match[7] || '').trim();
-    const alignedWidth = width ? alignBitWidthDeclarationRegex(width.slice(1, -1), config) : '';
-    let coreLine = type;
-    if (regKeyword) coreLine += ' ' + regKeyword;
-    let currentLine = indent + coreLine;
-    currentLine += ' '.repeat(Math.max(1, port_num2 - currentLine.length));
-    currentLine += signedUnsigned;
-    currentLine += ' '.repeat(Math.max(1, port_num3 - currentLine.length));
-    currentLine += alignedWidth;
-    currentLine += ' '.repeat(Math.max(1, port_num4 - currentLine.length));
-    currentLine += signal;
-    const endPart = endSymbol + (comment ? ' ' + comment : '');
-    if (endPart.trim()){
-        const spaces = Math.max(1, port_num5 - currentLine.length);
-        currentLine += ' '.repeat(spaces) + endPart;
-    }
-    return currentLine.trimEnd();
-}
-function alignRegWireIntegerDeclaration(line: string, config: vscode.WorkspaceConfiguration): string {
-    const signal_num2 = config.get<number>('signal_num2', 16);
-    const signal_num3 = config.get<number>('signal_num3', 25);
-    const signal_num4 = config.get<number>('signal_num4', 50);
-    const signal_num5 = config.get<number>('signal_num5', 80);
-    const regex = /^\s*(reg\b|wire\b|integer\b|real\b)\s*(signed|unsigned)?\s*($$[^$$]+\])?\s*([^;,\s]+)\s*([,;])?\s*(.*)/;
-    const match = line.match(regex);
-    if (!match) return line;
-    const indent = line.match(/^\s*/)?.[0] || '';
-    const type = match[1].trim();
-    const signedUnsigned = (match[2] || '').trim();
-    const width = (match[3] || '').trim();
-    const signal = match[4].trim();
-    const endSymbol = (match[5] || '').trim();
-    const comment = (match[6] || '').trim();
-    const alignedWidth = width ? alignBitWidthDeclarationRegex(width.slice(1, -1), config) : '';
-    let currentLine = indent + type;
-    currentLine += ' '.repeat(Math.max(1, signal_num2 - currentLine.length));
-    currentLine += signedUnsigned;
-    currentLine += ' '.repeat(Math.max(1, signal_num3 - currentLine.length));
-    currentLine += alignedWidth;
-    currentLine += ' '.repeat(Math.max(1, signal_num4 - currentLine.length));
-    currentLine += signal;
-    const endPart = (endSymbol || ';') + (comment ? ' ' + comment : '');
-    if (endPart.trim()){
-        const spaces = Math.max(1, signal_num5 - currentLine.length);
-        currentLine += ' '.repeat(spaces) + endPart;
-    }
-    return currentLine.trimEnd();
-}
-function alignParamDeclaration(line: string, config: vscode.WorkspaceConfiguration): string {
-    const localparam_num2 = config.get<number>('localparam_num2', 25);
-    const localparam_num3 = config.get<number>('localparam_num3', 50);
-    const localparam_num4 = config.get<number>('localparam_num4', 80);
-    const regex = /^\s*(localparam\b|parameter\b)\s+([^\s=]+)\s*=\s*([^;,\/]+)\s*([;,])?\s*(.*)/;
-    const match = line.match(regex);
-    if (!match) return line;
-    const indent = line.match(/^\s*/)?.[0] || '';
-    const type = match[1].trim();
-    const signal = match[2].trim();
-    const value = match[3].trim();
-    const endSymbol = (match[4] || '').trim();
-    const comment = (match[5] || '').trim();
-    let currentLine = indent + type;
-    currentLine += ' '.repeat(Math.max(1, localparam_num2 - currentLine.length));
-    currentLine += signal;
-    currentLine += ' '.repeat(Math.max(1, localparam_num3 - currentLine.length));
-    currentLine += '= ' + value;
-    const endPart = (endSymbol || ';') + (comment ? ' ' + comment : '');
-    if (endPart.trim()){
-        const spaces = Math.max(1, localparam_num4 - currentLine.length);
-        currentLine += ' '.repeat(spaces) + endPart;
-    }
-    return currentLine.trimEnd();
-}
-function alignAssignDeclaration(line: string, config: vscode.WorkspaceConfiguration): string {
-    const assign_num2 = config.get<number>('assign_num2', 12);
-    const assign_num3 = config.get<number>('assign_num3', 30);
-    const assign_num4 = config.get<number>('assign_num4', 80);
-    const regex = /^\s*assign\b\s+([^\s=]+)\s*=\s*([^;]+)\s*([;])?\s*(.*)/;
-    const match = line.match(regex);
-    if (!match) return line;
-    const indent = line.match(/^\s*/)?.[0] || '';
-    const signal = match[1].trim();
-    const value = match[2].trim();
-    const endSymbol = (match[3] || '').trim();
-    const comment = (match[4] || '').trim();
-    let currentLine = indent + 'assign';
-    currentLine += ' '.repeat(Math.max(1, assign_num2 - currentLine.length));
-    currentLine += signal;
-    currentLine += ' '.repeat(Math.max(1, assign_num3 - currentLine.length));
-    currentLine += '= ' + value;
-    const endPart = (endSymbol || ';') + (comment ? ' ' + comment : '');
-    if (endPart.trim()) {
-        const spaces = Math.max(1, assign_num4 - currentLine.length);
-        currentLine += ' '.repeat(spaces) + endPart;
-    }
-    return currentLine.trimEnd();
-}
-function alignInstanceSignal(line: string, config: vscode.WorkspaceConfiguration): string {
-    const inst_num2 = config.get<number>('inst_num2', 40);
-    const inst_num3 = config.get<number>('inst_num3', 80);
-    const regex = /^\s*\.([^\s$]+)\s*\(([^)]*)$\s*([,])?\s*(.*)/;
-    const match = line.match(regex);
-    if (!match) return line;
-    const indent = line.match(/^\s*/)?.[0] || '';
-    const signal = match[1].trim();
-    const connection = match[2].trim();
-    const endSymbol = (match[3] || '').trim();
-    const comment = (match[4] || '').trim();
-    let currentLine = indent + `.${signal}`;
-    currentLine += ' '.repeat(Math.max(1, inst_num2 - currentLine.length));
-    currentLine += `(${connection})`;
-    const endPart = endSymbol + (comment ? ' ' + comment : '');
-    if (endPart.trim()){
-        const spaces = Math.max(1, inst_num3 - currentLine.length);
-        currentLine += ' '.repeat(spaces) + endPart;
-    }
-    return currentLine.trimEnd();
-}
-function alignTwoDimArrayDeclaration(line: string, config: vscode.WorkspaceConfiguration): string {
-    const array_num2 = config.get<number>('array_num2', 16);
-    const array_num3 = config.get<number>('array_num3', 25);
-    const array_num4 = config.get<number>('array_num4', 50);
-    const array_num5 = config.get<number>('array_num5', 60);
-    const array_num6 = config.get<number>('array_num6', 80);
-    const regex = /^\s*(reg|wire)\s*(signed|unsigned)?\s*($$[^$$]+\])\s*([^;,\s]+\s*($$[^$$]+\]))\s*([;])?\s*(.*)/;
-    const match = line.match(regex);
-    if (!match) return line;
-    const indent = line.match(/^\s*/)?.[0] || '';
-    const type = (match[1] || '').trim();
-    const signedUnsigned = (match[2] || '').trim();
-    const width1 = (match[3] || '').trim();
-    const signal = (match[4] || '').trim();
-    const width2 = (match[5] || '').trim();
-    const endSymbol = (match[6] || '').trim();
-    const comment = (match[7] || '').trim();
-    const alignedWidth1 = width1 ? alignBitWidthDeclarationRegex(width1.slice(1, -1), config) : '';
-    const alignedWidth2 = width2 ? alignBitWidthDeclarationRegex(width2.slice(1, -1), config) : '';
-    let currentLine = indent + type;
-    currentLine += ' '.repeat(Math.max(1, array_num2 - currentLine.length));
-    currentLine += signedUnsigned;
-    currentLine += ' '.repeat(Math.max(1, array_num3 - currentLine.length));
-    currentLine += alignedWidth1;
-    currentLine += ' '.repeat(Math.max(1, array_num4 - currentLine.length));
-    currentLine += signal;
-    currentLine += ' '.repeat(Math.max(1, array_num5 - currentLine.length));
-    currentLine += alignedWidth2;
-    const endPart = (endSymbol || ';') + (comment ? ' ' + comment : '');
-    if (endPart.trim()){
-        const spaces = Math.max(1, array_num6 - currentLine.length);
-        currentLine += ' '.repeat(spaces) + endPart;
-    }
-    return currentLine.trimEnd();
+
+// --- Types for Parsed Line Data ---
+interface ParsedLine {
+    indent: string;
+    content: any;
+    comment: string;
+    originalLine: string;
 }
 
-function alignBitWidthDeclarationRegex(bitwidthContent: string, config: vscode.WorkspaceConfiguration): string {
+interface DeclarationContent {
+    type: string;
+    signed: string;
+    width1: string;
+    signal: string;
+    width2: string; // For 2D arrays
+    value?: string;
+    operator?: string;
+    endSymbol: string;
+}
+
+// --- Main Dispatcher for Regex Mode ---
+function alignVerilogCodeRegexOnly(text: string, config: vscode.WorkspaceConfiguration): string {
+    const lines = text.split('\n');
+    const newLines: string[] = [];
+    let i = 0;
+
+    while (i < lines.length) {
+        const line = lines[i];
+        const trimmedLine = line.trim();
+
+        // 检查当前行是否是一个我们支持对齐的块的开始
+        const blockType = getDeclarationBlockType(trimmedLine);
+        
+        // 只对 module 内部的、可识别的声明块进行处理
+        if (blockType) {
+            const blockLines: string[] = [];
+            let j = i;
+            
+            // 收集所有连续的、同类型的行
+            while (j < lines.length && getDeclarationBlockType(lines[j].trim()) === blockType) {
+                blockLines.push(lines[j]);
+                j++;
+            }
+            
+            // 对收集到的块进行格式化
+            const formattedBlock = processDeclarationBlock(blockLines, blockType, config);
+            newLines.push(...formattedBlock);
+            
+            // 将主循环的索引快进到已处理块的末尾
+            i = j;
+        } else {
+            // 如果不是可对齐的块，则原样保留该行
+            newLines.push(line);
+            i++;
+        }
+    }
+    
+    // 使用 join('\n') 来重建文本，这可以确保即使最后一行是空行也能被正确保留
+    return newLines.join('\n');
+}
+
+// --- Block Processing Logic ---
+
+function getDeclarationBlockType(trimmedLine: string): string | null {
+    if (trimmedLine.startsWith('input') || trimmedLine.startsWith('output') || trimmedLine.startsWith('inout')) return 'port';
+    // 关键修复：确保 reg/wire 出现在行首，且后面没有'@'符号
+    if (trimmedLine.match(/^(reg|wire|integer|real)\b/) && !trimmedLine.includes('@')) return 'signal';
+    if (trimmedLine.startsWith('localparam') || trimmedLine.startsWith('parameter')) return 'param';
+    if (trimmedLine.startsWith('assign')) return 'assign';
+    // 实例化的 .port(signal) 格式
+    if (trimmedLine.match(/^\s*\./)) return 'instance';
+    return null;
+}
+
+function processDeclarationBlock(blockLines: string[], type: string, config: vscode.WorkspaceConfiguration): string[] {
+    try {
+        const parsedLines: ParsedLine[] = [];
+        const maxWidths: { [key: string]: number } = {};
+
+        // 1. Parse all lines and find max widths
+        for (const line of blockLines) {
+            const parsed = parseLine(line, type, config);
+            if(parsed) {
+                parsedLines.push(parsed);
+                // Dynamically update max widths based on content
+                Object.keys(parsed.content).forEach(key => {
+                    const value = parsed.content[key] || '';
+                    maxWidths[key] = Math.max(maxWidths[key] || 0, value.length);
+                });
+            } else {
+                 // If a line in the block fails to parse, add it as-is.
+                parsedLines.push({indent: line.match(/^\s*/)?.[0] || '', content: null, comment: '', originalLine: line });
+            }
+        }
+
+        // 2. Rebuild all lines with calculated alignment
+        return parsedLines.map(p => {
+            if (!p.content) return p.originalLine; // Return un-parsable line as is
+            return rebuildLine(p, type, config, maxWidths);
+        });
+
+    } catch (e) {
+        // If anything goes wrong during block processing, return the original block.
+        console.error(`[Regex Aligner] Error processing block of type '${type}':`, e);
+        return blockLines;
+    }
+}
+
+
+// --- Line Parser Functions ---
+
+function parseLine(line: string, type: string, config: vscode.WorkspaceConfiguration): ParsedLine | null {
+    const indent = line.match(/^\s*/)?.[0] || '';
+    const trimmedLine = line.trim();
+    
+    // Universal regex to separate code from comment
+    const commentRegex = /^(.*?)\s*(\/\/.*|\/\*.*\*\/)?\s*$/;
+    const commentMatch = trimmedLine.match(commentRegex);
+    const codePart = (commentMatch?.[1] || '').trim();
+    const comment = (commentMatch?.[2] || '').trim();
+
+    let content: DeclarationContent | null = null;
+    switch(type) {
+        case 'port': content = parsePortOrSignal(codePart, config); break;
+        case 'signal': content = parsePortOrSignal(codePart, config); break;
+        case 'param': content = parseParam(codePart, config); break;
+        case 'assign': content = parseAssign(codePart, config); break;
+        case 'instance': content = parseInstance(codePart, config); break;
+    }
+    
+    if (content) {
+        return { indent, content, comment, originalLine: line };
+    }
+    return null;
+}
+
+function parsePortOrSignal(code: string, config: vscode.WorkspaceConfiguration): DeclarationContent | null {
+    // This regex is more robust: handles optional 'reg'/'wire', 'signed', and dimensions.
+    const regex = /^(inout|input|output|reg|wire|integer|real)?\s*(reg|wire)?\s*(signed)?\s*(\[[^\]]+\])?\s*([a-zA-Z0-9_$,\s]+?)\s*(\[[^\]]+\])?\s*([;,])?$/;
+    const match = code.match(regex);
+    if (!match) return null;
+    
+    const type = [match[1], match[2]].filter(Boolean).join(' ');
+    const signed = match[3] || '';
+    const width1 = match[4] || '';
+    const signal = (match[5] || '').trim(); // Can be a list like "a, b, c"
+    const width2 = match[6] || '';
+    const endSymbol = match[7] || '';
+
+    return { type, signed, width1: alignBitWidthDeclarationRegex(width1, config), signal, width2: alignBitWidthDeclarationRegex(width2, config), endSymbol };
+}
+
+function parseParam(code: string, config: vscode.WorkspaceConfiguration): DeclarationContent | null {
+    const regex = /^(localparam|parameter)\s+([a-zA-Z0-9_]+)\s*=\s*(.+?)\s*([;,])?$/;
+    const match = code.match(regex);
+    if (!match) return null;
+    
+    return { type: match[1], signal: match[2], operator: '=', value: match[3].trim(), endSymbol: match[4] || '', signed: '', width1: '', width2: '' };
+}
+
+function parseAssign(code: string, config: vscode.WorkspaceConfiguration): DeclarationContent | null {
+    const regex = /^assign\s+([^\s=]+)\s*=\s*(.+?)\s*([;])?$/;
+    const match = code.match(regex);
+    if (!match) return null;
+
+    return { type: 'assign', signal: match[1], operator: '=', value: match[2].trim(), endSymbol: match[3] || '', signed: '', width1: '', width2: '' };
+}
+
+function parseInstance(code: string, config: vscode.WorkspaceConfiguration): DeclarationContent | null {
+    // Improved regex to handle various connections.
+    const regex = /^\.\s*([a-zA-Z0-9_]+)\s*\((.*?)\)\s*([,])?$/;
+    const match = code.match(regex);
+    if (!match) return null;
+
+    // Here, we use 'signal' for port name and 'value' for connection
+    return { type: '.', signal: match[1], value: match[2].trim(), endSymbol: match[3] || '', signed: '', width1: '', operator: '', width2: '' };
+}
+
+
+// --- Line Rebuilder Functions ---
+
+function rebuildLine(parsed: ParsedLine, type: string, config: vscode.WorkspaceConfiguration, maxWidths: { [key: string]: number }): string {
+    const content = parsed.content as DeclarationContent;
+    
+    const fallbackIndentSize = config.get<number>('fallbackIndentSize', 4);
+    const baseIndent = ' '.repeat(fallbackIndentSize);
+    let line = baseIndent;
+
+    switch(type) {
+        case 'port':
+        case 'signal':
+            // 获取各部分的对齐列号
+            const signal_num2 = config.get<number>('signal_num2', 16);
+            const signal_num3 = config.get<number>('signal_num3', 25);
+            const signal_num4 = config.get<number>('signal_num4', 50);
+            
+            // 拼接 type, signed, width1, 和 signal，并进行列对齐
+            line += (content.type || '').padEnd(maxWidths.type);
+            line += ' '.repeat(Math.max(1, signal_num2 - line.length)) + (content.signed || '').padEnd(maxWidths.signed);
+            line += ' '.repeat(Math.max(1, signal_num3 - line.length)) + (content.width1 || '').padEnd(maxWidths.width1);
+            line += ' '.repeat(Math.max(1, signal_num4 - line.length)) + (content.signal || '').padEnd(maxWidths.signal);
+            
+            // ==================== 核心修改点 ====================
+            // 判断是否存在第二个维度 (width2)
+            if (content.width2) {
+                // 如果是二维数组，则第二个维度紧跟在信号名后，只空一格
+                line = line.trimEnd(); // 先移除信号名 padEnd 产生的多余空格
+                line += ' ' + content.width2;
+            }
+            // 如果不是二维数组，则什么都不做，保持之前的对齐即可。
+            // =====================================================
+            break;
+
+        case 'param':
+            const localparam_num2 = config.get<number>('localparam_num2', 25);
+            const localparam_num3 = config.get<number>('localparam_num3', 50);
+
+            line += (content.type || '').padEnd(maxWidths.type);
+            line += ' '.repeat(Math.max(1, localparam_num2 - line.length)) + (content.signal || '').padEnd(maxWidths.signal);
+            line += ' '.repeat(Math.max(1, localparam_num3 - line.length)) + `${content.operator} ${content.value}`;
+            break;
+            
+        case 'assign':
+            const assign_num2 = config.get<number>('assign_num2', 12);
+            const assign_num3 = config.get<number>('assign_num3', 30);
+            
+            line += (content.type || '').padEnd(maxWidths.type);
+            line += ' '.repeat(Math.max(1, assign_num2 - line.length)) + (content.signal || '').padEnd(maxWidths.signal);
+            line += ' '.repeat(Math.max(1, assign_num3 - line.length)) + `${content.operator} ${content.value}`;
+            break;
+            
+        case 'instance':
+            const inst_port_align_lparen = config.get<number>('inst_port_align_lparen', 40);
+            
+            line += `${content.type || '.'}${(content.signal || '').padEnd(maxWidths.signal)}`;
+            line += ' '.repeat(Math.max(1, inst_port_align_lparen - line.length)) + `(${(content.value || '')})`;
+            break;
+    }
+
+    line = line.trimEnd();
+
+    // 对齐结束符和注释 (逻辑保持不变)
+    let endSymbol = '';
+    if (content.endSymbol) {
+        endSymbol = content.endSymbol;
+    } else if (type !== 'instance') {
+        endSymbol = ';';
+    }
+
+    if (!endSymbol) {
+        if (parsed.comment) {
+             const commentAlignCol = config.get<number>('inst_port_align_rparen', 80);
+             line += ' '.repeat(Math.max(1, commentAlignCol - line.length)) + parsed.comment;
+        }
+        return line.trimEnd();
+    }
+    
+    const endSymbolAlignCol = config.get<number>('fallbackEndSymbolAlign', 80);
+    line += ' '.repeat(Math.max(1, endSymbolAlignCol - line.length));
+    line += endSymbol;
+
+    if (parsed.comment) {
+        line += ' ' + parsed.comment;
+    }
+    
+    return line.trimEnd();
+}
+
+// --- Helper for bit width formatting ---
+function alignBitWidthDeclarationRegex(bitwidth: string, config: vscode.WorkspaceConfiguration): string {
+    if (!bitwidth) return '';
+    const content = bitwidth.slice(1, -1); // Remove brackets
+    
     const upbound = config.get<number>('upbound', 2);
     const lowbound = config.get<number>('lowbound', 2);
     
-    if (!bitwidthContent.includes(':')) return '';
+    if (!content.includes(':')) return bitwidth;
 
-    const parts = bitwidthContent.split(':');
+    const parts = content.split(':');
     const up = parts[0].trim();
     const low = parts[1].trim();
 
