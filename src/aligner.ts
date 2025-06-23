@@ -240,7 +240,7 @@ function formatASTNode(node: ASTNode, config: vscode.WorkspaceConfiguration, ind
 
                 if (itemNode.name.includes('param')) {
                     formatterFn = formatLocalParameterDeclarationCode;
-                    alignConfigKey = 'localparam_num4';
+                    alignConfigKey = 'param_num4';
                 } else if (itemNode.name.includes('assign')) {
                     formatterFn = formatContinuousAssignCode;
                     alignConfigKey = 'assign_num4';
@@ -487,8 +487,8 @@ function formatParamAssignmentCode(assignment: ASTNode, config: vscode.Workspace
 
 function formatLocalParameterDeclarationCode(decl: ASTNode, config: vscode.WorkspaceConfiguration, indentLevel: number, context: FormattingContext): string {
     const indentStr = indentChar.repeat(indentLevel);
-    const localparam_num2 = config.get<number>('localparam_num2', 25);
-    const localparam_num3 = config.get<number>('localparam_num3', 50);
+    const localparam_num2 = config.get<number>('param_num2', 25);
+    const localparam_num3 = config.get<number>('param_num3', 50);
 
     const keyword = getRawNodeText(findChild(decl, 'PARAMETER')) || getRawNodeText(findChild(decl, 'LOCALPARAM')) || 'parameter';
 
@@ -579,8 +579,8 @@ function formatSignalsDeclarationCode(decl: ASTNode, config: vscode.WorkspaceCon
 
 function formatContinuousAssignCode(node: ASTNode, config: vscode.WorkspaceConfiguration, indentLevel: number, context: FormattingContext): string {
     const indentStr = indentChar.repeat(indentLevel);
-    const assign_num2 = config.get<number>('assign_num2', 12);
-    const assign_num3 = config.get<number>('assign_num3', 30);
+    const assign_num2 = config.get<number>('assign_num2', 20);
+    const assign_num3 = config.get<number>('assign_num3', 50);
     const lvalueNode = findChild(node, 'variable_lvalue') || findChild(node, 'net_lvalue');
     
     const expressionNode = node.children?.find(c => c.name.endsWith('expression') || c.name === 'concatenation');
@@ -694,7 +694,7 @@ function formatInitialConstruct(node: ASTNode, config: vscode.WorkspaceConfigura
 
 function formatAlwaysConstruct(node: ASTNode, config: vscode.WorkspaceConfiguration, indentLevel: number, context: FormattingContext): string {
     const baseIndent = indentChar.repeat(indentLevel);
-    let content = baseIndent + 'always';
+    let content = '\n' + baseIndent + 'always';
     let bodyContent = '';
 
     const eventControlNode = findChild(node, 'event_control');
@@ -1217,8 +1217,8 @@ function formatInstantiationParameters(node: ASTNode, config: vscode.WorkspaceCo
 
     reassociateTrailingLineComments(paramAssignments);
 
-    const inst_param_align_lparen = config.get<number>('inst_param_align_lparen', 40);
-    const inst_param_align_rparen = config.get<number>('inst_param_align_rparen', 80);
+    const inst_param_align_lparen = config.get<number>('inst_num2', 40);
+    const inst_param_align_rparen = config.get<number>('inst_num3', 80);
 
     const resultLines: string[] = [];
     for (let i = 0; i < paramAssignments.length; i++) {
@@ -1231,7 +1231,7 @@ function formatInstantiationParameters(node: ASTNode, config: vscode.WorkspaceCo
         
         let codePart = `${paramIndent}.${paramName}`;
         codePart += ' '.repeat(Math.max(1, inst_param_align_lparen - codePart.length)) + `(${paramValue}`;
-        codePart += ' '.repeat(Math.max(1, inst_param_align_rparen - codePart.length - 1)) + ')';
+        codePart += ' '.repeat(Math.max(1, inst_param_align_rparen - codePart.length)) + ')';
         
         if(currentLine) currentLine += `\n${codePart}`;
         else currentLine = codePart;
@@ -1263,9 +1263,9 @@ function formatInstantiationPorts(node: ASTNode, config: vscode.WorkspaceConfigu
 
     reassociateTrailingLineComments(portConnections);
 
-    const inst_port_align_name = config.get<number>('inst_port_align_name', 24);
-    const inst_port_align_lparen = config.get<number>('inst_port_align_lparen', 40);
-    const inst_port_align_rparen = config.get<number>('inst_port_align_rparen', 80);
+    const inst_port_align_name   = config.get<number>('inst_num1', 24);
+    const inst_port_align_lparen = config.get<number>('inst_num2', 40);
+    const inst_port_align_rparen = config.get<number>('inst_num3', 80);
 
     const resultLines: string[] = [];
     for (let i = 0; i < portConnections.length; i++) {
@@ -1279,7 +1279,7 @@ function formatInstantiationPorts(node: ASTNode, config: vscode.WorkspaceConfigu
         let codePart = `${portIndent}.${portName}`;
         codePart += ' '.repeat(Math.max(1, inst_port_align_name - codePart.length));
         codePart += ' '.repeat(Math.max(1, inst_port_align_lparen - codePart.length)) + `(${portSignal}`;
-        codePart += ' '.repeat(Math.max(1, inst_port_align_rparen - codePart.length - 1)) + ')';
+        codePart += ' '.repeat(Math.max(1, inst_port_align_rparen - codePart.length)) + ')';
 
         if (currentLine) currentLine += `\n${codePart}`;
         else currentLine = codePart;
@@ -1514,8 +1514,8 @@ function rebuildLine(parsed: ParsedLine, type: string, config: vscode.WorkspaceC
             break;
 
         case 'param':
-            const localparam_num2 = config.get<number>('localparam_num2', 25);
-            const localparam_num3 = config.get<number>('localparam_num3', 50);
+            const localparam_num2 = config.get<number>('param_num2', 25);
+            const localparam_num3 = config.get<number>('param_num3', 50);
 
             line += (content.type || '').padEnd(maxWidths.type);
             line += ' '.repeat(Math.max(1, localparam_num2 - line.length)) + (content.signal || '').padEnd(maxWidths.signal);
@@ -1532,7 +1532,7 @@ function rebuildLine(parsed: ParsedLine, type: string, config: vscode.WorkspaceC
             break;
             
         case 'instance':
-            const inst_port_align_lparen = config.get<number>('inst_port_align_lparen', 40);
+            const inst_port_align_lparen = config.get<number>('inst_num2', 40);
             
             line += `${content.type || '.'}${(content.signal || '').padEnd(maxWidths.signal)}`;
             line += ' '.repeat(Math.max(1, inst_port_align_lparen - line.length)) + `(${(content.value || '')})`;
@@ -1551,13 +1551,13 @@ function rebuildLine(parsed: ParsedLine, type: string, config: vscode.WorkspaceC
 
     if (!endSymbol) {
         if (parsed.comment) {
-             const commentAlignCol = config.get<number>('inst_port_align_rparen', 80);
+             const commentAlignCol = config.get<number>('inst_num3', 80);
              line += ' '.repeat(Math.max(1, commentAlignCol - line.length)) + parsed.comment;
         }
         return line.trimEnd();
     }
     
-    const endSymbolAlignCol = config.get<number>('fallbackEndSymbolAlign', 80);
+    const endSymbolAlignCol = config.get<number>('inst_num3', 80);
     line += ' '.repeat(Math.max(1, endSymbolAlignCol - line.length));
     line += endSymbol;
 

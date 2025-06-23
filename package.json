@@ -92,11 +92,6 @@
     "configuration": {
       "title": "Adolph-Verilog-Align",
       "properties": {
-        "adolphAlign.port_num1": {
-          "type": "number",
-          "default": 4,
-          "description": "Port: 行首到 input/output/inout 左侧的距离"
-        },
         "adolphAlign.port_num2": {
           "type": "number",
           "default": 16,
@@ -116,11 +111,6 @@
           "type": "number",
           "default": 80,
           "description": "Port: 行首到  , ; 的长度"
-        },
-        "adolphAlign.signal_num1": {
-          "type": "number",
-          "default": 4,
-          "description": "变量: 行首到 reg/wire/integer 左侧的距离"
         },
         "adolphAlign.signal_num2": {
           "type": "number",
@@ -142,11 +132,6 @@
           "default": 80,
           "description": "变量: 行首到 ; 的距离"
         },
-        "adolphAlign.param_num1": {
-          "type": "number",
-          "default": 4,
-          "description": "参数: 行首到 parameter/localparam 左侧的距离"
-        },
         "adolphAlign.param_num2": {
           "type": "number",
           "default": 40,
@@ -162,65 +147,30 @@
           "default": 80,
           "description": "参数: 行首到 行首到 ; 或 , 或 // 的距离"
         },
-        "adolphAlign.assign_num1": {
-          "type": "number",
-          "default": 4,
-          "description": "assign: 行首到  assign 左侧的距离"
-        },
         "adolphAlign.assign_num2": {
           "type": "number",
           "default": 12,
-          "description": "assign: 行首到  变量左侧的距离"
+          "description": "assign: 行首到 变量左侧的距离"
         },
         "adolphAlign.assign_num3": {
           "type": "number",
           "default": 30,
-          "description": "assign: 行首到  “=”的距离"
+          "description": "assign: 行首到  “=” 的距离"
         },
-        "adolphAlign.inst_num1": {
+        "adolphAlign.assign_num4": {
           "type": "number",
-          "default": 8,
-          "description": "实例化:  ,  左侧与行首的距离"
+          "default": 80,
+          "description": "assign: 行首到 “;” 的距离"
         },
         "adolphAlign.inst_num2": {
           "type": "number",
           "default": 40,
-          "description": "实例化: 信号 , 到“（”的距离"
+          "description": "实例化: 行首到“（”的距离"
         },
         "adolphAlign.inst_num3": {
           "type": "number",
           "default": 80,
-          "description": "实例化: 信号 , 到“）”的距离"
-        },
-        "adolphAlign.array_num1": {
-          "type": "number",
-          "default": 4,
-          "description": "数组: 行首到 reg/wire 左侧的距离"
-        },
-        "adolphAlign.array_num2": {
-          "type": "number",
-          "default": 16,
-          "description": "数组: 行首到 signed/unsigned 左侧的距离"
-        },
-        "adolphAlign.array_num3": {
-          "type": "number",
-          "default": 25,
-          "description": "数组: 行首到 第一个位宽左侧的距离"
-        },
-        "adolphAlign.array_num4": {
-          "type": "number",
-          "default": 50,
-          "description": "数组: 行首到 变量左侧的距离"
-        },
-        "adolphAlign.array_num5": {
-          "type": "number",
-          "default": 60,
-          "description": "数组: 行首到 第二个位宽左侧的距离"
-        },
-        "adolphAlign.array_num6": {
-          "type": "number",
-          "default": 80,
-          "description": "数组: 行首到 ; 的距离"
+          "description": "实例化: 行首到“）”的距离"
         },
         "adolphAlign.upbound": {
           "type": "number",
@@ -231,6 +181,41 @@
           "type": "number",
           "default": 2,
           "description": "位宽 [:] 内的下限空格数"
+        },
+        "adolphAlign.preprocessor_col1": {
+          "type": "number",
+          "default": 12,
+          "description": "预编译指令 信号名对齐位置"
+        },
+        "adolphAlign.preprocessor_col2": {
+          "type": "number",
+          "default": 24,
+          "description": "预编译指令 字符串对齐位置"
+        },
+        "adolphAlign.always_lvalue_align": {
+          "type": "number",
+          "default": 28,
+          "description": "always进程块 变量左值对齐位置"
+        },
+        "adolphAlign.always_op_align": {
+          "type": "number",
+          "default": 32,
+          "description": "always进程块 赋值符号对齐位置"
+        },
+        "adolphAlign.always_comment_align": {
+          "type": "number",
+          "default": 80,
+          "description": "always进程块 行尾注释对齐位置"
+        },        
+        "adolphAlign.case_colon_align": {
+          "type": "number",
+          "default": 20,
+          "description": "case 条件变量到“:”列对齐位置"
+        },
+        "adolphAlign.fallbackIndentSize": {
+          "type": "number",
+          "default": 4,
+          "description": "回退缩进大小"
         },
         "adolphAlign.alignPorts": {
           "type": "boolean",
