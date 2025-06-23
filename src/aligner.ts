@@ -292,6 +292,35 @@ function formatModuleDeclaration(node: ASTNode, config: vscode.WorkspaceConfigur
     return content + '\n';
 }
 
+function collectAllTrailingComments(node: ASTNode | undefined, context: FormattingContext): string {
+    if (!node) return '';
+
+    let allComments: CommentInfo[] = [];
+
+    // 递归函数
+    function findComments(currentNode: ASTNode) {
+        if (currentNode.trailingComments) {
+            allComments.push(...currentNode.trailingComments);
+        }
+        if (currentNode.children) {
+            // 从后往前遍历子节点，因为行尾注释更有可能在后面的节点上
+            for (let i = currentNode.children.length - 1; i >= 0; i--) {
+                findComments(currentNode.children[i]);
+            }
+        }
+    }
+
+    findComments(node);
+
+    // 去重并格式化
+    const uniqueComments = allComments.filter((comment, index, self) => 
+        index === self.findIndex(c => c.originalTokenIndex === comment.originalTokenIndex)
+    );
+    
+    return formatTrailingComments(uniqueComments, context);
+}
+
+// 找到并替换 formatParameterPortList 函数
 function formatParameterPortList(node: ASTNode, config: vscode.WorkspaceConfiguration, indentLevel: number, context: FormattingContext): string {
     const indent = indentChar.repeat(indentLevel);
     const assignments = findAllChildren(node, 'param_assignment');
@@ -303,10 +332,12 @@ function formatParameterPortList(node: ASTNode, config: vscode.WorkspaceConfigur
     for (let i = 0; i < assignments.length; i++) {
         const assignment = assignments[i];
         
+        // --- 核心修正：使用新的辅助函数来获取注释 ---
         const getTrailingPart = (n: ASTNode, ctx: FormattingContext) => {
             const isLast = (i === assignments.length - 1);
             const separator = isLast ? '' : ',';
-            const trailingCommentText = formatTrailingComments(n.trailingComments, ctx);
+            // 使用新函数来收集当前行节点(n)内部所有的行尾注释
+            const trailingCommentText = collectAllTrailingComments(n, ctx);
             return separator + (trailingCommentText ? ' ' + trailingCommentText : '');
         };
 
@@ -317,7 +348,11 @@ function formatParameterPortList(node: ASTNode, config: vscode.WorkspaceConfigur
         resultLines.push(line);
     }
     
-    return `#(\n${resultLines.filter(Boolean).join('\n')}\n${indent})`;
+    const rParenNode = findChild(node, 'RPAREN');
+    const remainingLeadingCommentsOnRParen = rParenNode ? formatLeadingComments(rParenNode.leadingComments, indent, context) : '';
+    const endLine = (remainingLeadingCommentsOnRParen ? '\n' + remainingLeadingCommentsOnRParen.trimEnd() : '') + `\n${indent})`; // 注意这里要把 ')' 加回来
+    
+    return `#(\n${resultLines.filter(Boolean).join('\n')}${endLine}`;
 }
 
 function reassociateTrailingLineComments(items: ASTNode[]): void {
@@ -367,7 +402,6 @@ function reassociateTrailingLineComments(items: ASTNode[]): void {
     }
 }
 
-
 function formatPortList(node: ASTNode, config: vscode.WorkspaceConfiguration, indentLevel: number, context: FormattingContext): string {
     const indent = indentChar.repeat(indentLevel);
     const portDecls = (node.children || []).filter(c => c.name.endsWith('_declaration')).sort((a,b) => (a.start?.line || 0) - (b.start?.line || 0));
@@ -379,10 +413,11 @@ function formatPortList(node: ASTNode, config: vscode.WorkspaceConfiguration, in
     for (let i = 0; i < portDecls.length; i++) {
         const decl = portDecls[i];
         
+        // --- 核心修正：使用新的辅助函数来获取注释 ---
         const getTrailingPart = (n: ASTNode, ctx: FormattingContext) => {
             const isLast = (i === portDecls.length - 1);
             const separator = isLast ? '' : ',';
-            const trailingCommentText = formatTrailingComments(n.trailingComments, ctx);
+            const trailingCommentText = collectAllTrailingComments(n, ctx);
             return separator + (trailingCommentText ? " " + trailingCommentText : "");
         };
 
@@ -392,8 +427,12 @@ function formatPortList(node: ASTNode, config: vscode.WorkspaceConfiguration, in
         );
         resultLines.push(line);
     }
+    
+    const rParenNode = findChild(node, 'RPAREN');
+    const remainingLeadingCommentsOnRParen = rParenNode ? formatLeadingComments(rParenNode.leadingComments, indent, context) : '';
+    const endLine = (remainingLeadingCommentsOnRParen ? '\n' + remainingLeadingCommentsOnRParen.trimEnd() : '') + `\n${indent})`; // 注意这里要把 ')' 加回来
 
-    return `${indent}(\n${resultLines.filter(Boolean).join('\n')}\n${indent})`;
+    return `(\n${resultLines.filter(Boolean).join('\n')}${endLine}`;
 }
 
 function formatPortDeclarationCode(declaration: ASTNode, config: vscode.WorkspaceConfiguration, indentLevel: number, context: FormattingContext): string {
@@ -439,7 +478,6 @@ function formatParamAssignmentCode(assignment: ASTNode, config: vscode.Workspace
     currentLine += ' '.repeat(Math.max(1, param_num3 - currentLine.length)) + '= ' + value;
     return currentLine;
 }
-
 
 function formatLocalParameterDeclarationCode(decl: ASTNode, config: vscode.WorkspaceConfiguration, indentLevel: number, context: FormattingContext): string {
     const indentStr = indentChar.repeat(indentLevel);
